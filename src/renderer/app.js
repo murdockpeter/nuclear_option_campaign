@@ -19,6 +19,14 @@ const OBJECTIVE_INTENSITY_LABELS = ["Low", "Medium", "High", "Very High"];
 const OBJECTIVE_FORCE_COUNTS = [4, 8, 12, 18];
 const BASELINE_DEFENDER_COUNT = 3;
 const AUTOLOAD_DELAY_MS = 350;
+const DEFAULT_FACTION_SUPPLIES = [
+  { unitType: "COIN", count: 16 },
+  { unitType: "trainer", count: 16 },
+  { unitType: "AttackHelo1", count: 12 },
+  { unitType: "Multirole1", count: 12 },
+  { unitType: "SmallFighter1", count: 12 },
+  { unitType: "EW1", count: 8 }
+];
 const LOCATION_EXPORT_NAME_OVERRIDES = {
   Terrain1: {
     "South Boscali Airfield": "South Boscali General Aviation"
@@ -811,7 +819,7 @@ function getCampaignPayload() {
       factionName: els.friendlyFaction.value,
       preventJoin: false,
       preventDonation: false,
-      supplies: [],
+      supplies: DEFAULT_FACTION_SUPPLIES,
       startingBalance: Number(els.startingCash.value || 250000),
       playerJoinAllowance: 20,
       playerTaxRate: 0.2,
@@ -820,8 +828,8 @@ function getCampaignPayload() {
       killReward: 1,
       startingWarheads: 0,
       reserveWarheads: 0,
-      reserveAirframes: 0,
-      extraReservesPerPlayer: 1,
+      reserveAirframes: 24,
+      extraReservesPerPlayer: 4,
       AIAircraftLimit: 6,
       reduceAIPerFriendlyPlayer: 1,
       addAIPerEnemyPlayer: 1,
@@ -842,7 +850,7 @@ function getCampaignPayload() {
       factionName: els.enemyFaction.value,
       preventJoin: false,
       preventDonation: false,
-      supplies: [],
+      supplies: DEFAULT_FACTION_SUPPLIES,
       startingBalance: Number(els.startingCash.value || 250000),
       playerJoinAllowance: 0,
       playerTaxRate: 0,
@@ -851,8 +859,8 @@ function getCampaignPayload() {
       killReward: 1,
       startingWarheads: 0,
       reserveWarheads: 0,
-      reserveAirframes: 0,
-      extraReservesPerPlayer: 1,
+      reserveAirframes: 24,
+      extraReservesPerPlayer: 4,
       AIAircraftLimit: 6,
       reduceAIPerFriendlyPlayer: 1,
       addAIPerEnemyPlayer: 1,
