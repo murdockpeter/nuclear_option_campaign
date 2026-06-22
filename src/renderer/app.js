@@ -19,6 +19,11 @@ const OBJECTIVE_INTENSITY_LABELS = ["Low", "Medium", "High", "Very High"];
 const OBJECTIVE_FORCE_COUNTS = [4, 8, 12, 18];
 const BASELINE_DEFENDER_COUNT = 3;
 const AUTOLOAD_DELAY_MS = 350;
+const LOCATION_EXPORT_NAME_OVERRIDES = {
+  Terrain1: {
+    "South Boscali Airfield": "South Boscali General Aviation"
+  }
+};
 const OBJECTIVE_PROFILE_TYPES = {
   armor: ["MBT1", "AFV8_IFV", "AFV8_APC"],
   "air-defense": ["RadarSAM1", "SAMTrailer1", "SPAAG1", "AFV8_SAM"],
@@ -674,6 +679,10 @@ function sanitizeIdFragment(value) {
     .toLowerCase();
 }
 
+function getExportLocationName(mapKey, locationName) {
+  return LOCATION_EXPORT_NAME_OVERRIDES[mapKey]?.[locationName] || locationName;
+}
+
 function createDefenderVehicle(type, faction, name, x, z, angleDegrees) {
   const radians = (angleDegrees * Math.PI) / 180;
   const half = radians / 2;
@@ -752,9 +761,11 @@ function buildObjectiveDefenseVehicles(objectiveLocation) {
 function buildExportAirbases(map, locations) {
   return locations
     .filter((location) => location.gameWorldX != null && location.gameWorldZ != null)
-    .map((location) => ({
-      UniqueName: location.name,
-      DisplayName: location.name,
+    .map((location) => {
+      const exportName = getExportLocationName(map.key, location.name);
+      return {
+      UniqueName: exportName,
+      DisplayName: exportName,
       faction:
         location.initialOwner && location.initialOwner !== "Neutral"
           ? location.initialOwner
@@ -769,7 +780,8 @@ function buildExportAirbases(map, locations) {
       ServicePoints: [],
       roads: { roads: [] },
       runways: []
-    }));
+    };
+    });
 }
 
 function getCampaignPayload() {
@@ -797,21 +809,65 @@ function getCampaignPayload() {
   const factions = [
     {
       factionName: els.friendlyFaction.value,
+      preventJoin: false,
+      preventDonation: false,
+      supplies: [],
       startingBalance: Number(els.startingCash.value || 250000),
       playerJoinAllowance: 20,
       playerTaxRate: 0.2,
       regularIncome: 5,
+      excessFundsDistributePercent: 0.25,
       killReward: 1,
-      restrictions: {}
+      startingWarheads: 0,
+      reserveWarheads: 0,
+      reserveAirframes: 0,
+      extraReservesPerPlayer: 1,
+      AIAircraftLimit: 6,
+      reduceAIPerFriendlyPlayer: 1,
+      addAIPerEnemyPlayer: 1,
+      objectives: [],
+      restrictions: {
+        aircraft: [],
+        weapons: []
+      },
+      cameraStartPosition: {
+        IsOverride: false,
+        Value: {
+          Position: { x: 0, y: 0, z: 0 },
+          Rotation: { x: 0, y: 0, z: 0, w: 1 }
+        }
+      }
     },
     {
       factionName: els.enemyFaction.value,
+      preventJoin: false,
+      preventDonation: false,
+      supplies: [],
       startingBalance: Number(els.startingCash.value || 250000),
       playerJoinAllowance: 0,
       playerTaxRate: 0,
       regularIncome: 5,
+      excessFundsDistributePercent: 0.25,
       killReward: 1,
-      restrictions: {}
+      startingWarheads: 0,
+      reserveWarheads: 0,
+      reserveAirframes: 0,
+      extraReservesPerPlayer: 1,
+      AIAircraftLimit: 6,
+      reduceAIPerFriendlyPlayer: 1,
+      addAIPerEnemyPlayer: 1,
+      objectives: [],
+      restrictions: {
+        aircraft: [],
+        weapons: []
+      },
+      cameraStartPosition: {
+        IsOverride: false,
+        Value: {
+          Position: { x: 0, y: 0, z: 0 },
+          Rotation: { x: 0, y: 0, z: 0, w: 1 }
+        }
+      }
     }
   ];
 

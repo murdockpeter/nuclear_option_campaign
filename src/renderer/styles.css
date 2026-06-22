@@ -535,24 +535,59 @@ textarea {
   position: absolute;
   left: 0;
   top: 0;
-  width: 28px;
-  height: 28px;
-  border: 2px solid rgba(216, 247, 50, 0.95);
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(102, 208, 203, 0.95);
   border-radius: 999px;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 18px rgba(216, 247, 50, 0.25);
+  box-shadow: 0 0 16px rgba(102, 208, 203, 0.22);
+}
+
+.campaign-marker__ring::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(102, 208, 203, 0.45);
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
 }
 
 .campaign-marker__objective {
   position: absolute;
   left: 0;
   top: 0;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border: 2px dashed rgba(242, 166, 64, 0.95);
   border-radius: 999px;
   transform: translate(-50%, -50%);
   box-shadow: 0 0 18px rgba(242, 166, 64, 0.22);
+}
+
+.campaign-marker__objective::before,
+.campaign-marker__objective::after {
+  content: "";
+  position: absolute;
+  background: rgba(242, 166, 64, 0.95);
+}
+
+.campaign-marker__objective::before {
+  left: 50%;
+  top: -10px;
+  bottom: -10px;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.campaign-marker__objective::after {
+  top: 50%;
+  left: -10px;
+  right: -10px;
+  height: 2px;
+  transform: translateY(-50%);
 }
 
 .config-crosshair {
