@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nuclear Option Campaign Generator</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand__eyebrow">Desktop Prototype</div>
+          <h1>Nuclear Option Campaign Generator</h1>
+        </div>
+        <div class="topbar__meta" id="scan-meta">Scanning local install...</div>
+      </header>
+
+      <main class="layout">
+        <section class="panel panel--controls">
+          <div class="section-header">
+            <span>Campaign Settings</span>
+            <button class="ghost" id="reload-catalog">Reload Catalog</button>
+          </div>
+
+          <div class="stack">
+            <label class="field">
+              <span>Campaign Name</span>
+              <input id="campaign-name" value="Operation Iron Seed" />
+            </label>
+
+            <label class="field">
+              <span>Description</span>
+              <textarea id="campaign-description" rows="3">Dynamic multi-scenario campaign generated from the current Nuclear Option install.</textarea>
+            </label>
+
+            <div class="field-grid">
+              <label class="field">
+                <span>Select Map</span>
+                <select id="map-select"></select>
+              </label>
+              <label class="field">
+                <span>Starting Airfield</span>
+                <select id="airfield-select"></select>
+              </label>
+            </div>
+
+            <div class="field-grid">
+              <label class="field">
+                <span>Friendly Faction</span>
+                <select id="friendly-faction"></select>
+              </label>
+              <label class="field">
+                <span>Enemy Faction</span>
+                <select id="enemy-faction"></select>
+              </label>
+            </div>
+
+            <div class="field-grid">
+              <label class="field">
+                <span>Starting Rank</span>
+                <input id="starting-rank" type="number" min="0" max="10" value="5" />
+              </label>
+              <label class="field">
+                <span>Starting Cash</span>
+                <input id="starting-cash" type="number" min="0" step="5000" value="250000" />
+              </label>
+            </div>
+
+            <div class="field-grid">
+              <label class="field">
+                <span>Time of Day</span>
+                <input id="time-of-day" type="range" min="0" max="24" step="0.5" value="10" />
+              </label>
+              <label class="field">
+                <span>Weather Intensity</span>
+                <input id="weather-intensity" type="range" min="0" max="1" step="0.1" value="0.2" />
+              </label>
+            </div>
+
+            <div class="toggle-grid">
+              <label><input type="checkbox" id="allow-respawn" checked /> Allow Respawn</label>
+              <label><input type="checkbox" id="enable-sam" checked /> Enemy SAM Sites</label>
+              <label><input type="checkbox" id="enable-artillery" checked /> Enemy Artillery</label>
+              <label><input type="checkbox" id="enable-factories" checked /> Factory Targets</label>
+              <label><input type="checkbox" id="enable-ground" checked /> Ground Units</label>
+              <label><input type="checkbox" id="enable-ships" /> Naval Targets</label>
+            </div>
+
+            <div class="field-grid">
+              <label class="field">
+                <span>Scenarios</span>
+                <input id="scenario-count" type="number" min="1" max="12" value="3" />
+              </label>
+              <label class="field">
+                <span>Seed Mission</span>
+                <select id="seed-mission"></select>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Target Location</span>
+              <select id="target-location"></select>
+            </label>
+          </div>
+
+          <div class="section-header section-header--sub">
+            <span>Local Catalog</span>
+          </div>
+          <div class="stats" id="catalog-stats"></div>
+          <div class="mission-list" id="mission-list"></div>
+        </section>
+
+        <section class="panel panel--workspace">
+          <div class="workspace-toolbar">
+            <div>
+              <div class="map-title" id="map-title">Campaign Workspace</div>
+              <div class="map-subtitle" id="map-subtitle">Selector-based setup using scanned missions and named locations.</div>
+            </div>
+            <div class="workspace-toolbar__actions">
+              <label class="zoom-control">
+                <span>Zoom</span>
+                <input id="config-zoom" type="range" min="1" max="4" step="0.25" value="1.5" />
+              </label>
+              <button class="secondary" id="show-campaign-view">Campaign Setup</button>
+              <button class="ghost" id="show-config-view">Configure Locations</button>
+            </div>
+          </div>
+
+          <div class="workspace-body" id="campaign-view">
+            <div class="workspace-card">
+              <div class="workspace-card__label">Map</div>
+              <div class="workspace-card__value" id="workspace-map">-</div>
+            </div>
+            <div class="workspace-card">
+              <div class="workspace-card__label">Starting Airfield</div>
+              <div class="workspace-card__value" id="workspace-start">-</div>
+            </div>
+            <div class="workspace-card">
+              <div class="workspace-card__label">Target Location</div>
+              <div class="workspace-card__value" id="workspace-target">-</div>
+            </div>
+            <div class="workspace-card">
+              <div class="workspace-card__label">Scenario Count</div>
+              <div class="workspace-card__value" id="workspace-scenarios">-</div>
+            </div>
+            <div class="workspace-card workspace-card--full">
+              <div class="workspace-card__label">Targeting Model</div>
+              <div class="workspace-card__text">
+                Map-free workflow. Campaign generation now uses named location selectors so you can supply your own CSV with location names and in-game coordinates.
+              </div>
+            </div>
+          </div>
+
+          <div class="config-body hidden" id="config-view">
+            <div class="config-stage" id="config-stage">
+              <div class="config-empty" id="config-empty">Loading Heartland map...</div>
+              <div class="config-scroll" id="config-scroll">
+                <div class="config-canvas" id="config-canvas">
+                  <img id="config-map-image" alt="Location configuration map" />
+                  <div id="config-marker-layer"></div>
+                </div>
+              </div>
+            </div>
+            <div class="config-panel">
+              <div class="workspace-card workspace-card--full">
+                <div class="workspace-card__label">Click Capture</div>
+                <div class="workspace-card__text" id="config-readout">Click the map to capture an exact image position.</div>
+              </div>
+
+              <label class="field">
+                <span>Existing Location</span>
+                <select id="config-existing-location"></select>
+              </label>
+
+              <label class="field">
+                <span>Location Name</span>
+                <input id="config-location-name" />
+              </label>
+
+              <div class="field-grid">
+                <label class="field">
+                  <span>Pixel X</span>
+                  <input id="config-pixel-x" type="number" step="1" />
+                </label>
+                <label class="field">
+                  <span>Pixel Y</span>
+                  <input id="config-pixel-y" type="number" step="1" />
+                </label>
+              </div>
+
+              <div class="field-grid">
+                <label class="field">
+                  <span>In-Game X</span>
+                  <input id="config-world-x" type="number" step="0.1" />
+                </label>
+                <label class="field">
+                  <span>In-Game Z</span>
+                  <input id="config-world-z" type="number" step="0.1" />
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Notes</span>
+                <textarea id="config-notes" rows="3"></textarea>
+              </label>
+
+              <button class="primary" id="save-config-location">Save Location To CSV</button>
+            </div>
+          </div>
+
+          <div class="map-footer">
+            <button class="primary" id="generate-campaign">Generate Campaign Package</button>
+          </div>
+
+          <div class="generated-output" id="generated-output"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

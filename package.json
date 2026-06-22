@@ -1,0 +1,12 @@
+{
+  "name": "nuclear-option-campaign",
+  "version": "0.1.0",
+  "description": "Electron prototype for authoring dynamic Nuclear Option campaigns.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "set ELECTRON_RUN_AS_NODE=& electron ."
+  },
+  "dependencies": {
+    "electron": "^37.1.0"
+  }
+}

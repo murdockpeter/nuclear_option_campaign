@@ -1,0 +1,12 @@
+target_id,label,approx_grid_x,approx_grid_y,image_left_percent,image_top_percent,feature_type,notes
+HT-01,Northwest White Cluster,5.6,5.3,28.8,16.2,building_cluster,Top-left island interior cluster
+HT-02,Northeast White Cluster,8.8,6.4,59.2,28.4,building_cluster,Upper-right inland cluster
+HT-03,Central Single White Spot,9.4,7.3,66.3,38.1,single_structure,Small isolated bright spot
+HT-04,West-Central Small White Spot,6.6,7.6,38.0,42.0,single_structure,Small inland bright square
+HT-05,East-Central Small White Spot,8.9,8.2,59.8,47.1,single_structure,Small inland bright square
+HT-06,Southwest Mid Cluster,5.9,9.0,31.6,58.8,building_cluster,Cluster just above the coastal road
+HT-07,Far Southwest Coastal Cluster,4.4,9.7,11.5,66.0,building_cluster,Coastal cluster near left edge
+HT-08,Southeast Mid Cluster,8.8,9.1,58.8,59.8,building_cluster,Cluster above the right side of the coastal road
+HT-09,Far East Mid Small Spot,10.8,9.0,77.8,58.8,single_structure,Small bright spot near right edge
+HT-10,East-Southeast Single Spot,10.2,10.5,72.0,74.8,single_structure,Single bright spot in southeast interior
+HT-11,South-Central Single Spot,6.9,11.4,41.1,81.8,single_structure,Single bright spot in south-central interior

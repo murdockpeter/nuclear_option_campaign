@@ -1,0 +1,13 @@
+map_key,name,pixel_x,pixel_y,ui_left_percent,ui_top_percent,game_world_x,game_world_z,notes
+Terrain1,North Boscali Airbase,475,110,15.83,3.67,,,"Visible runway/airbase footprint on northwest island"
+Terrain1,North Coast Enrichment Plant,1225,35,40.83,1.17,,,"Visible north-coast industrial/port footprint"
+Terrain1,Maris Airport,1989,768,66.30,25.60,13308,18727,"Visible runway footprint on northeast landmass"
+Terrain1,Central Gulf Airbase,1645,1270,54.83,42.33,,,"Visible central gulf urban/airbase footprint"
+Terrain1,K92 Highway Strip,2185,1046,72.83,34.87,18909,12593,"Approximate visible location on eastern side; verify against mission editor"
+Terrain1,Desert Forward Strip,2255,1440,75.17,48.00,,,"Approximate visible location on eastern desert side; verify against mission editor"
+Terrain1,Dustbowl Highway Strip,1815,1830,60.50,61.00,,,"Approximate visible location on eastern desert side; verify against mission editor"
+Terrain1,Southern Interior Base,1540,2395,51.33,79.83,,,"Visible southern inland footprint"
+Terrain1,Agrapol Airbase,1420,2580,47.33,86.00,,,"Visible southern runway/airbase footprint"
+Terrain1,Sandrift Airbase,2495,2325,83.17,77.50,,,"Visible southeastern airbase footprint"
+Terrain1,PRF Base,2395,2570,79.83,85.67,,,"Visible southern airbase footprint"
+Terrain1,Vigil Cay Naval Airbase,125,2050,4.17,68.33,,,"Visible island naval airbase footprint"
