@@ -7,7 +7,7 @@ Electron prototype for building a dynamic-campaign layer around a local `Nuclear
 This repository is currently focused on two working paths:
 
 1. `Campaign Setup`
-   Used to choose a map, starting location, target location, factions, scenario count, and export a campaign package.
+   Used to choose a map, set the starting airfield, assign initial ownership for each named location, and export a starting campaign mission.
 
 2. `Configure Locations`
    Used to click exact points on the Heartland map image, name those locations, enter in-game `X/Z` coordinates, and save them into a CSV that becomes the source of truth for later scenario generation.
@@ -17,9 +17,11 @@ The Heartland location-config workflow is the main active authoring flow at the 
 ## What It Does
 
 - Scans the current local `Nuclear Option` mission folders.
-- Builds a catalog of readable missions, maps, factions, and scenario-used airfields.
+- Builds a catalog of readable missions, maps, factions, and configured locations.
 - Opens an Electron desktop UI for campaign setup and location configuration.
 - Lets you save named Heartland locations directly from the map image into a CSV.
+- Lets you persist initial ownership for each configured location.
+- Places faction ground marker units near owned locations during export so the generated mission starts with visible territorial control.
 - Exports campaign packages to:
   - `exports/<Campaign Name>/campaign.json`
   - `exports/<Campaign Name>/<Campaign Name>/meta.json`
@@ -34,12 +36,10 @@ Use the main setup view to select:
 
 - map
 - starting airfield
-- target location
 - factions
 - starting rank
 - starting cash
-- scenario count
-- seed mission
+- initial ownership for each named location
 
 Then export a campaign package.
 
@@ -90,6 +90,7 @@ Saved locations are shown back on the config map as nodes so placement can be vi
 - `ui_top_percent`
 - `game_world_x`
 - `game_world_z`
+- `initial_owner`
 - `notes`
 
 `pixel_x` and `pixel_y` come from the clicked map image.
@@ -119,13 +120,13 @@ After launch, use `Reload Catalog` to initialize scanning and load the current m
 ## Current Limitations
 
 - Heartland is the main map currently configured for exact click-to-CSV authoring.
-- Built-in scenario logic is still light; this is not yet a finished dynamic campaign engine.
-- The exported campaign structure is usable as a prototype package, but generation rules and objective chaining are still in progress.
+- The app currently generates a starting campaign state rather than a full branching dynamic campaign.
+- Exported ownership is represented by placed ground units near configured locations; broader order-of-battle persistence is still to come.
 - Some older data files remain in `data/` from earlier calibration attempts and may not all be active sources.
 
 ## Next Likely Steps
 
 - Finish entering a clean Heartland location set with exact in-game coordinates.
-- Use configured CSV locations as the only source of truth for campaign targeting and placement.
+- Use configured CSV locations as the only source of truth for ownership, targeting, and placement.
 - Expand the same workflow to additional maps.
-- Define stronger seed-mission behavior for scenario generation.
+- Persist post-mission results into a fuller order of battle.

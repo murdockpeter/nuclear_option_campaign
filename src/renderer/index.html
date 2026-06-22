@@ -69,6 +69,34 @@
 
             <div class="field-grid">
               <label class="field">
+                <span>Target / Objective</span>
+                <select id="objective-target"></select>
+              </label>
+              <label class="field">
+                <span>Objective Enemy Profile</span>
+                <select id="objective-unit-profile">
+                  <option value="armor">Armor</option>
+                  <option value="air-defense">Air Defense</option>
+                  <option value="artillery">Artillery</option>
+                  <option value="mixed" selected>Mixed</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Objective Force Concentration</span>
+              <input id="objective-intensity" type="range" min="0" max="3" step="1" value="1" />
+              <div class="slider-stops">
+                <span>Low</span>
+                <span>Medium</span>
+                <span>High</span>
+                <span>Very High</span>
+              </div>
+              <div class="slider-value" id="objective-intensity-value">Medium</div>
+            </label>
+
+            <div class="field-grid">
+              <label class="field">
                 <span>Time of Day</span>
                 <input id="time-of-day" type="range" min="0" max="24" step="0.5" value="10" />
               </label>
@@ -87,28 +115,21 @@
               <label><input type="checkbox" id="enable-ships" /> Naval Targets</label>
             </div>
 
-            <div class="field-grid">
-              <label class="field">
-                <span>Scenarios</span>
-                <input id="scenario-count" type="number" min="1" max="12" value="3" />
-              </label>
-              <label class="field">
-                <span>Seed Mission</span>
-                <select id="seed-mission"></select>
-              </label>
+            <div class="section-header section-header--sub">
+              <span>Initial Ownership</span>
             </div>
-
-            <label class="field">
-              <span>Target Location</span>
-              <select id="target-location"></select>
-            </label>
+            <div class="workspace-card workspace-card--full">
+              <div class="workspace-card__text">
+                Set who initially controls each named location. On export, the mission generator places a ground marker unit near owned locations for the chosen faction. Neutral locations receive no marker unit.
+              </div>
+            </div>
+            <div class="ownership-list" id="ownership-list"></div>
           </div>
 
           <div class="section-header section-header--sub">
             <span>Local Catalog</span>
           </div>
           <div class="stats" id="catalog-stats"></div>
-          <div class="mission-list" id="mission-list"></div>
         </section>
 
         <section class="panel panel--workspace">
@@ -128,26 +149,41 @@
           </div>
 
           <div class="workspace-body" id="campaign-view">
-            <div class="workspace-card">
-              <div class="workspace-card__label">Map</div>
-              <div class="workspace-card__value" id="workspace-map">-</div>
-            </div>
-            <div class="workspace-card">
+            <div class="workspace-summary-grid">
+              <div class="workspace-card">
+                <div class="workspace-card__label">Map</div>
+                <div class="workspace-card__value" id="workspace-map">-</div>
+              </div>
+              <div class="workspace-card">
               <div class="workspace-card__label">Starting Airfield</div>
               <div class="workspace-card__value" id="workspace-start">-</div>
             </div>
             <div class="workspace-card">
-              <div class="workspace-card__label">Target Location</div>
-              <div class="workspace-card__value" id="workspace-target">-</div>
+              <div class="workspace-card__label">Objective</div>
+              <div class="workspace-card__value" id="workspace-objective">-</div>
             </div>
             <div class="workspace-card">
-              <div class="workspace-card__label">Scenario Count</div>
-              <div class="workspace-card__value" id="workspace-scenarios">-</div>
+              <div class="workspace-card__label">Configured Locations</div>
+              <div class="workspace-card__value" id="workspace-location-count">-</div>
             </div>
             <div class="workspace-card workspace-card--full">
-              <div class="workspace-card__label">Targeting Model</div>
+              <div class="workspace-card__label">Ownership Split</div>
+              <div class="workspace-card__value" id="workspace-ownership">-</div>
+            </div>
+            <div class="workspace-card workspace-card--full">
+              <div class="workspace-card__label">Start-State Model</div>
               <div class="workspace-card__text">
-                Map-free workflow. Campaign generation now uses named location selectors so you can supply your own CSV with location names and in-game coordinates.
+                This generator now builds an initial multiplayer campaign start state from your named locations and manual ownership assignments rather than seeding from existing missions.
+              </div>
+            </div>
+            </div>
+            <div class="campaign-stage" id="campaign-stage">
+              <div class="campaign-empty" id="campaign-empty">Click Reload Catalog to load the selected map.</div>
+              <div class="campaign-scroll" id="campaign-scroll">
+                <div class="campaign-canvas" id="campaign-canvas">
+                  <img id="campaign-map-image" alt="Campaign map" />
+                  <div id="campaign-marker-layer"></div>
+                </div>
               </div>
             </div>
           </div>

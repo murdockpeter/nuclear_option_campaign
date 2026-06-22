@@ -2,27 +2,49 @@ const state = {
   catalog: null,
   selectedMapKey: "Terrain1",
   activeView: "campaign",
+  campaignImageReady: false,
   configPoint: null,
   configImageReady: false,
   configZoom: 1
 };
 
+const HIDDEN_LOCATION_NAMES = new Set([
+  "Central Gulf Airbase",
+  "North Coast Enrichment Plant",
+  "PRF Base",
+  "Southern Interior Base"
+]);
+
+const OBJECTIVE_INTENSITY_LABELS = ["Low", "Medium", "High", "Very High"];
+const OBJECTIVE_FORCE_COUNTS = [4, 8, 12, 18];
+const BASELINE_DEFENDER_COUNT = 3;
+const AUTOLOAD_DELAY_MS = 350;
+const OBJECTIVE_PROFILE_TYPES = {
+  armor: ["MBT1", "AFV8_IFV", "AFV8_APC"],
+  "air-defense": ["RadarSAM1", "SAMTrailer1", "SPAAG1", "AFV8_SAM"],
+  artillery: ["Truck2-FT", "LightTruck1_AT", "AFV8_APC"],
+  mixed: ["MBT1", "AFV8_IFV", "RadarSAM1", "SPAAG1", "Truck2-FT", "AFV8_APC"]
+};
+
 const els = {
   scanMeta: document.getElementById("scan-meta"),
   catalogStats: document.getElementById("catalog-stats"),
-  missionList: document.getElementById("mission-list"),
+  ownershipList: document.getElementById("ownership-list"),
   mapSelect: document.getElementById("map-select"),
   airfieldSelect: document.getElementById("airfield-select"),
-  targetLocation: document.getElementById("target-location"),
   friendlyFaction: document.getElementById("friendly-faction"),
   enemyFaction: document.getElementById("enemy-faction"),
-  seedMission: document.getElementById("seed-mission"),
+  objectiveTarget: document.getElementById("objective-target"),
+  objectiveUnitProfile: document.getElementById("objective-unit-profile"),
+  objectiveIntensity: document.getElementById("objective-intensity"),
+  objectiveIntensityValue: document.getElementById("objective-intensity-value"),
   mapTitle: document.getElementById("map-title"),
   mapSubtitle: document.getElementById("map-subtitle"),
   workspaceMap: document.getElementById("workspace-map"),
   workspaceStart: document.getElementById("workspace-start"),
-  workspaceTarget: document.getElementById("workspace-target"),
-  workspaceScenarios: document.getElementById("workspace-scenarios"),
+  workspaceObjective: document.getElementById("workspace-objective"),
+  workspaceLocationCount: document.getElementById("workspace-location-count"),
+  workspaceOwnership: document.getElementById("workspace-ownership"),
   output: document.getElementById("generated-output"),
   campaignName: document.getElementById("campaign-name"),
   description: document.getElementById("campaign-description"),
@@ -36,10 +58,15 @@ const els = {
   enableFactories: document.getElementById("enable-factories"),
   enableGround: document.getElementById("enable-ground"),
   enableShips: document.getElementById("enable-ships"),
-  scenarioCount: document.getElementById("scenario-count"),
   showCampaignView: document.getElementById("show-campaign-view"),
   showConfigView: document.getElementById("show-config-view"),
   campaignView: document.getElementById("campaign-view"),
+  campaignStage: document.getElementById("campaign-stage"),
+  campaignScroll: document.getElementById("campaign-scroll"),
+  campaignCanvas: document.getElementById("campaign-canvas"),
+  campaignEmpty: document.getElementById("campaign-empty"),
+  campaignMapImage: document.getElementById("campaign-map-image"),
+  campaignMarkerLayer: document.getElementById("campaign-marker-layer"),
   configView: document.getElementById("config-view"),
   configStage: document.getElementById("config-stage"),
   configScroll: document.getElementById("config-scroll"),
@@ -78,8 +105,76 @@ function resolveRendererAsset(assetPath) {
   return new URL(assetPath, window.location.href).href;
 }
 
+function normalizeName(value) {
+  return (value || "").trim().toLowerCase();
+}
+
 function configuredLocationsForMap(mapKey) {
-  return state.catalog?.configuredLocationsByMap?.[mapKey] || [];
+  return (state.catalog?.configuredLocationsByMap?.[mapKey] || []).filter((entry) => {
+    return !HIDDEN_LOCATION_NAMES.has(entry.name);
+  });
+}
+
+function inferDefaultOwner(map, locationName) {
+  const known = map?.airfields?.find((entry) => {
+    return normalizeName(entry.name) === normalizeName(locationName) || normalizeName(entry.id) === normalizeName(locationName);
+  });
+
+  return known?.faction || "Neutral";
+}
+
+function getOperationalLocations(map = mapByKey(state.selectedMapKey)) {
+  if (!map) {
+    return [];
+  }
+
+  const configured = configuredLocationsForMap(map.key);
+  if (configured.length > 0) {
+    return configured
+      .map((entry) => ({
+        id: entry.name,
+        name: entry.name,
+        pixelX: entry.pixelX,
+        pixelY: entry.pixelY,
+        gameWorldX: entry.gameWorldX,
+        gameWorldZ: entry.gameWorldZ,
+        notes: entry.notes || "",
+        initialOwner: entry.initialOwner || inferDefaultOwner(map, entry.name)
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  return [...map.airfields]
+    .map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      pixelX: null,
+      pixelY: null,
+      gameWorldX: entry.x,
+      gameWorldZ: entry.z,
+      notes: "",
+      initialOwner: entry.faction || "Neutral"
+    }))
+    .filter((entry) => !HIDDEN_LOCATION_NAMES.has(entry.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function resolveGameLocation(map, selectedValue) {
+  const location = getOperationalLocations(map).find((entry) => {
+    return entry.id === selectedValue || entry.name === selectedValue;
+  });
+
+  if (!location) {
+    return null;
+  }
+
+  return {
+    id: location.id,
+    name: location.name,
+    x: location.gameWorldX,
+    z: location.gameWorldZ,
+    owner: location.initialOwner
+  };
 }
 
 function upsertConfiguredLocationInState(row) {
@@ -106,7 +201,8 @@ function upsertConfiguredLocationInState(row) {
     uiTopPercent: row.uiTopPercent,
     gameWorldX: row.gameWorldX,
     gameWorldZ: row.gameWorldZ,
-    notes: row.notes || ""
+    notes: row.notes || "",
+    initialOwner: row.initialOwner || inferDefaultOwner(mapByKey(row.mapKey), row.name)
   };
 
   if (existingIndex >= 0) {
@@ -116,40 +212,29 @@ function upsertConfiguredLocationInState(row) {
   }
 }
 
-function renderStats() {
-  const userCount = state.catalog.userMissions.filter((item) => item.status === "ok").length;
-  const tempCount = state.catalog.tempMissions.filter((item) => item.status === "ok").length;
-  const mapCount = state.catalog.maps.length;
-
-  els.catalogStats.innerHTML = `
-    <div class="stat-card"><strong>${userCount}</strong><span>User Missions</span></div>
-    <div class="stat-card"><strong>${tempCount}</strong><span>Temp Missions</span></div>
-    <div class="stat-card"><strong>${mapCount}</strong><span>Known Maps</span></div>
-  `;
-}
-
-function renderMissionList() {
-  const items = [...state.catalog.userMissions, ...state.catalog.tempMissions]
-    .filter((entry) => entry.status === "ok")
-    .sort((a, b) => a.missionName.localeCompare(b.missionName));
-
-  if (items.length === 0) {
-    els.missionList.innerHTML =
-      `<div class="mission-card">No readable mission folders were found in the configured AppData paths.</div>`;
+function updateLocationOwnerInState(mapKey, name, initialOwner) {
+  if (!state.catalog?.configuredLocationsByMap?.[mapKey]) {
     return;
   }
 
-  els.missionList.innerHTML = items
-    .map(
-      (entry) => `
-        <article class="mission-card">
-          <div class="mission-card__title">${entry.missionName}</div>
-          <div class="mission-card__meta">${entry.summary.mapLabel} • ${entry.summary.counts.objectives} objectives</div>
-          <div class="mission-card__meta">${entry.summary.factions.map((name) => `<span class="pill">${name}</span>`).join("")}</div>
-        </article>
-      `
-    )
-    .join("");
+  const location = state.catalog.configuredLocationsByMap[mapKey].find((entry) => entry.name === name);
+  if (location) {
+    location.initialOwner = initialOwner;
+  }
+}
+
+function renderStats() {
+  const mapCount = state.catalog?.maps?.length || 0;
+  const configuredCount = Object.values(state.catalog?.configuredLocationsByMap || {}).reduce((count, items) => count + items.length, 0);
+  const readyCoords = Object.values(state.catalog?.configuredLocationsByMap || {}).reduce((count, items) => {
+    return count + items.filter((item) => item.gameWorldX != null && item.gameWorldZ != null).length;
+  }, 0);
+
+  els.catalogStats.innerHTML = `
+    <div class="stat-card"><strong>${mapCount}</strong><span>Supported Maps</span></div>
+    <div class="stat-card"><strong>${configuredCount}</strong><span>Named Locations</span></div>
+    <div class="stat-card"><strong>${readyCoords}</strong><span>Ready Coordinates</span></div>
+  `;
 }
 
 function renderMapOptions() {
@@ -168,75 +253,103 @@ function renderFactionOptions() {
       select.appendChild(createOption(faction.id, faction.label));
     }
   }
+
   els.friendlyFaction.value = "Boscali";
   els.enemyFaction.value = "Primeva";
 }
 
-function renderSeedMissions() {
-  const items = [...state.catalog.userMissions, ...state.catalog.tempMissions]
-    .filter((entry) => entry.status === "ok")
-    .sort((a, b) => a.missionName.localeCompare(b.missionName));
+function renderLocationOptions() {
+  const map = mapByKey(state.selectedMapKey);
+  const locations = getOperationalLocations(map);
+  const previousValue = els.airfieldSelect.value;
 
-  els.seedMission.innerHTML = "";
-  for (const item of items) {
-    els.seedMission.appendChild(createOption(item.folderName, item.missionName));
+  els.airfieldSelect.innerHTML = "";
+  for (const location of locations) {
+    els.airfieldSelect.appendChild(createOption(location.id, location.name));
+  }
+
+  const friendlyOwned = locations.filter((entry) => entry.initialOwner === els.friendlyFaction.value);
+  const preferred = locations.find((entry) => entry.id === previousValue) || friendlyOwned[0] || locations[0];
+  if (preferred) {
+    els.airfieldSelect.value = preferred.id;
   }
 }
 
-function renderLocationOptions() {
+function renderObjectiveOptions() {
+  const map = mapByKey(state.selectedMapKey);
+  const locations = getOperationalLocations(map);
+  const previousValue = els.objectiveTarget.value;
+
+  els.objectiveTarget.innerHTML = "";
+  for (const location of locations) {
+    els.objectiveTarget.appendChild(createOption(location.id, location.name));
+  }
+
+  const preferredEnemy = locations.find((entry) => entry.initialOwner === els.enemyFaction.value);
+  const preferred =
+    locations.find((entry) => entry.id === previousValue) ||
+    preferredEnemy ||
+    locations.find((entry) => entry.id !== els.airfieldSelect.value) ||
+    locations[0];
+
+  if (preferred) {
+    els.objectiveTarget.value = preferred.id;
+  }
+}
+
+function renderObjectiveIntensityValue() {
+  const level = Number(els.objectiveIntensity.value || 1);
+  setText(els.objectiveIntensityValue, OBJECTIVE_INTENSITY_LABELS[level] || "Medium");
+}
+
+function renderOwnershipList() {
   if (!state.catalog) {
-    els.airfieldSelect.innerHTML = "";
-    els.targetLocation.innerHTML = "";
+    els.ownershipList.innerHTML = `<div class="mission-card">Reload catalog first.</div>`;
     return;
   }
 
   const map = mapByKey(state.selectedMapKey);
-  const namedLocations = configuredLocationsForMap(map.key);
-  const fallbackLocations = [...map.airfields].map((airfield) => ({
-    id: airfield.id,
-    name: airfield.name
-  }));
-  const source = (namedLocations.length ? namedLocations.map((entry) => ({
-    id: entry.name,
-    name: entry.name
-  })) : fallbackLocations).sort((a, b) => a.name.localeCompare(b.name));
+  const locations = getOperationalLocations(map);
 
-  els.airfieldSelect.innerHTML = "";
-  els.targetLocation.innerHTML = "";
-
-  for (const location of source) {
-    els.airfieldSelect.appendChild(createOption(location.id, location.name));
-    els.targetLocation.appendChild(createOption(location.id, location.name));
+  if (!locations.length) {
+    els.ownershipList.innerHTML = `<div class="mission-card">No configured locations are available for this map yet.</div>`;
+    return;
   }
 
-  if (source.length) {
-    els.airfieldSelect.value = source[0].id;
-    els.targetLocation.value = source[Math.min(1, source.length - 1)].id;
-  }
-}
+  const ownerOptions = [
+    { value: "Neutral", label: "Neutral" },
+    { value: els.friendlyFaction.value, label: els.friendlyFaction.value },
+    { value: els.enemyFaction.value, label: els.enemyFaction.value }
+  ];
 
-function resolveGameLocation(map, selectedValue) {
-  const configured = configuredLocationsForMap(map.key).find((entry) => entry.name === selectedValue);
-  if (configured) {
-    return {
-      id: configured.name,
-      name: configured.name,
-      x: configured.gameWorldX,
-      z: configured.gameWorldZ
-    };
-  }
+  els.ownershipList.innerHTML = locations
+    .map((location) => {
+      const selectedOwner = location.initialOwner || "Neutral";
+      const meta = [
+        location.gameWorldX != null && location.gameWorldZ != null
+          ? `X ${location.gameWorldX}, Z ${location.gameWorldZ}`
+          : "Missing in-game coordinates",
+        location.notes || "No notes"
+      ].join(" - ");
 
-  const airfield = map.airfields.find((entry) => entry.id === selectedValue || entry.name === selectedValue);
-  if (airfield) {
-    return {
-      id: airfield.id,
-      name: airfield.name,
-      x: airfield.x,
-      z: airfield.z
-    };
-  }
-
-  return null;
+      return `
+        <div class="ownership-row">
+          <div>
+            <div class="ownership-row__title">${location.name}</div>
+            <div class="ownership-row__meta">${meta}</div>
+          </div>
+          <label class="field">
+            <span>Owner</span>
+            <select data-owner-select="${location.name}">
+              ${ownerOptions
+                .map((option) => `<option value="${option.value}" ${option.value === selectedOwner ? "selected" : ""}>${option.label}</option>`)
+                .join("")}
+            </select>
+          </label>
+        </div>
+      `;
+    })
+    .join("");
 }
 
 function updateWorkspaceSummary() {
@@ -249,25 +362,36 @@ function updateWorkspaceSummary() {
     );
     setText(els.workspaceMap, "-");
     setText(els.workspaceStart, "-");
-    setText(els.workspaceTarget, "-");
-    setText(els.workspaceScenarios, String(Number(els.scenarioCount.value || 3)));
+    setText(els.workspaceObjective, "-");
+    setText(els.workspaceLocationCount, "-");
+    setText(els.workspaceOwnership, "-");
     return;
   }
 
+  const locations = getOperationalLocations(map);
   const startingAirbase = resolveGameLocation(map, els.airfieldSelect.value);
-  const target = resolveGameLocation(map, els.targetLocation.value);
+  const objectiveLocation = resolveGameLocation(map, els.objectiveTarget.value);
+  const ownershipCounts = {
+    friendly: locations.filter((entry) => entry.initialOwner === els.friendlyFaction.value).length,
+    enemy: locations.filter((entry) => entry.initialOwner === els.enemyFaction.value).length,
+    neutral: locations.filter((entry) => !entry.initialOwner || entry.initialOwner === "Neutral").length
+  };
 
   setText(els.mapTitle, state.activeView === "campaign" ? map.label : `${map.label} Location Config`);
   setText(
     els.mapSubtitle,
     state.activeView === "campaign"
-      ? "Map-free workflow using named location selectors and CSV-backed coordinates."
+      ? "Manual ownership setup for a fresh multiplayer campaign start."
       : "Click a map point, name the location, then enter the in-game X/Z coordinates."
   );
   setText(els.workspaceMap, map.label);
   setText(els.workspaceStart, startingAirbase?.name || "-");
-  setText(els.workspaceTarget, target?.name || "-");
-  setText(els.workspaceScenarios, String(Number(els.scenarioCount.value || 3)));
+  setText(els.workspaceObjective, objectiveLocation?.name || "-");
+  setText(els.workspaceLocationCount, String(locations.length));
+  setText(
+    els.workspaceOwnership,
+    `${ownershipCounts.friendly} ${els.friendlyFaction.value} / ${ownershipCounts.enemy} ${els.enemyFaction.value} / ${ownershipCounts.neutral} Neutral`
+  );
 }
 
 function updateScanMeta() {
@@ -275,7 +399,7 @@ function updateScanMeta() {
   const installExists = state.catalog.install.exists ? "install found" : "install missing";
   setText(
     els.scanMeta,
-    `${installExists} • missions: ${pathInfo.missionsPath} • scanned ${new Date(state.catalog.scannedAt).toLocaleString()}`
+    `${installExists} - missions: ${pathInfo.missionsPath} - scanned ${new Date(state.catalog.scannedAt).toLocaleString()}`
   );
 }
 
@@ -283,6 +407,15 @@ function getConfigViewport() {
   const naturalWidth = els.configMapImage.naturalWidth || 1;
   const naturalHeight = els.configMapImage.naturalHeight || 1;
   const baseWidth = els.configScroll.clientWidth || els.configStage.clientWidth || naturalWidth;
+  const width = baseWidth * state.configZoom;
+  const height = width * (naturalHeight / naturalWidth);
+  return { left: 0, top: 0, width, height };
+}
+
+function getCampaignViewport() {
+  const naturalWidth = els.campaignMapImage.naturalWidth || 1;
+  const naturalHeight = els.campaignMapImage.naturalHeight || 1;
+  const baseWidth = els.campaignScroll.clientWidth || els.campaignStage.clientWidth || naturalWidth;
   const width = baseWidth * state.configZoom;
   const height = width * (naturalHeight / naturalWidth);
   return { left: 0, top: 0, width, height };
@@ -300,6 +433,20 @@ function applyConfigFrame() {
   els.configMarkerLayer.style.top = `${viewport.top}px`;
   els.configMarkerLayer.style.width = `${viewport.width}px`;
   els.configMarkerLayer.style.height = `${viewport.height}px`;
+}
+
+function applyCampaignFrame() {
+  const viewport = getCampaignViewport();
+  els.campaignCanvas.style.width = `${viewport.width}px`;
+  els.campaignCanvas.style.height = `${viewport.height}px`;
+  els.campaignMapImage.style.left = `${viewport.left}px`;
+  els.campaignMapImage.style.top = `${viewport.top}px`;
+  els.campaignMapImage.style.width = `${viewport.width}px`;
+  els.campaignMapImage.style.height = `${viewport.height}px`;
+  els.campaignMarkerLayer.style.left = `${viewport.left}px`;
+  els.campaignMarkerLayer.style.top = `${viewport.top}px`;
+  els.campaignMarkerLayer.style.width = `${viewport.width}px`;
+  els.campaignMarkerLayer.style.height = `${viewport.height}px`;
 }
 
 function setConfigPoint(pixelX, pixelY) {
@@ -351,6 +498,7 @@ function renderConfigMarkers() {
     els.configMarkerLayer.innerHTML = "";
     return;
   }
+
   applyConfigFrame();
   els.configMarkerLayer.innerHTML = "";
 
@@ -382,6 +530,85 @@ function renderConfigMarkers() {
   }
 }
 
+function ownershipClassFor(location) {
+  if (location.initialOwner === els.friendlyFaction.value) {
+    return "campaign-marker campaign-marker--friendly";
+  }
+
+  if (location.initialOwner === els.enemyFaction.value) {
+    return "campaign-marker campaign-marker--enemy";
+  }
+
+  return "campaign-marker campaign-marker--neutral";
+}
+
+function renderCampaignMarkers() {
+  const map = mapByKey(state.selectedMapKey);
+  if (!map || !state.campaignImageReady) {
+    els.campaignMarkerLayer.innerHTML = "";
+    return;
+  }
+
+  applyCampaignFrame();
+  const startingAirfield = resolveGameLocation(map, els.airfieldSelect.value);
+  const objectiveLocation = resolveGameLocation(map, els.objectiveTarget.value);
+  els.campaignMarkerLayer.innerHTML = "";
+
+  for (const location of getOperationalLocations(map)) {
+    if (location.pixelX == null || location.pixelY == null) {
+      continue;
+    }
+
+    const left = (location.pixelX / map.pixelSize.width) * 100;
+    const top = (location.pixelY / map.pixelSize.height) * 100;
+    const marker = document.createElement("div");
+    marker.className = ownershipClassFor(location);
+    marker.style.left = `${left}%`;
+    marker.style.top = `${top}%`;
+    marker.innerHTML = `
+      <div class="campaign-marker__dot"></div>
+      <div class="campaign-marker__label">${location.name}</div>
+    `;
+
+    if (startingAirfield?.name === location.name) {
+      marker.innerHTML += `<div class="campaign-marker__ring"></div>`;
+    }
+
+    if (objectiveLocation?.name === location.name) {
+      marker.innerHTML += `<div class="campaign-marker__objective"></div>`;
+    }
+
+    els.campaignMarkerLayer.appendChild(marker);
+  }
+}
+
+function renderCampaignView() {
+  const map = mapByKey(state.selectedMapKey);
+  if (!map) {
+    state.campaignImageReady = false;
+    els.campaignEmpty.textContent = "Click Reload Catalog to load the selected map.";
+    els.campaignEmpty.classList.remove("hidden");
+    els.campaignMapImage.removeAttribute("src");
+    els.campaignMarkerLayer.innerHTML = "";
+    return;
+  }
+
+  const resolvedSrc = resolveRendererAsset(map.imagePath);
+  const sameImage = els.campaignMapImage.src === resolvedSrc;
+
+  if (!sameImage) {
+    state.campaignImageReady = false;
+    els.campaignEmpty.textContent = `Loading ${map.label} map...`;
+    els.campaignEmpty.classList.remove("hidden");
+    els.campaignMapImage.src = resolvedSrc;
+  } else if (els.campaignMapImage.complete && els.campaignMapImage.naturalWidth > 0) {
+    state.campaignImageReady = true;
+    els.campaignEmpty.classList.add("hidden");
+  }
+
+  renderCampaignMarkers();
+}
+
 function scrollConfigToPixel(pixelX, pixelY) {
   const map = mapByKey(state.selectedMapKey);
   if (!map || !state.configImageReady) {
@@ -391,10 +618,8 @@ function scrollConfigToPixel(pixelX, pixelY) {
   const viewport = getConfigViewport();
   const targetLeft = (pixelX / map.pixelSize.width) * viewport.width;
   const targetTop = (pixelY / map.pixelSize.height) * viewport.height;
-  const nextLeft = Math.max(0, targetLeft - els.configScroll.clientWidth / 2);
-  const nextTop = Math.max(0, targetTop - els.configScroll.clientHeight / 2);
-  els.configScroll.scrollLeft = nextLeft;
-  els.configScroll.scrollTop = nextTop;
+  els.configScroll.scrollLeft = Math.max(0, targetLeft - els.configScroll.clientWidth / 2);
+  els.configScroll.scrollTop = Math.max(0, targetTop - els.configScroll.clientHeight / 2);
 }
 
 function renderConfigView() {
@@ -436,14 +661,138 @@ function showView(view) {
   updateWorkspaceSummary();
   if (view === "config") {
     renderConfigView();
+    return;
   }
+
+  renderCampaignView();
+}
+
+function sanitizeIdFragment(value) {
+  return (value || "")
+    .replace(/[^a-z0-9]+/gi, "_")
+    .replace(/^_+|_+$/g, "")
+    .toLowerCase();
+}
+
+function createDefenderVehicle(type, faction, name, x, z, angleDegrees) {
+  const radians = (angleDegrees * Math.PI) / 180;
+  const half = radians / 2;
+  return {
+    type,
+    faction,
+    UniqueName: name,
+    globalPosition: { x, y: 0, z },
+    rotation: { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) },
+    CaptureStrength: { IsOverride: false, Value: 0 },
+    CaptureDefense: { IsOverride: false, Value: 0 },
+    unitCustomID: "",
+    spawnTiming: "",
+    holdPosition: true,
+    skill: 0.7,
+    waypoints: []
+  };
+}
+
+function buildBaselineDefenseVehicles(locations) {
+  let index = 0;
+  const baselineTypes = ["AFV8_IFV", "AFV8_APC", "SPAAG1"];
+
+  return locations
+    .filter((location) => location.initialOwner && location.initialOwner !== "Neutral")
+    .flatMap((location) => {
+      return Array.from({ length: BASELINE_DEFENDER_COUNT }, (_, vehicleIndex) => {
+        index += 1;
+        const angle = vehicleIndex * (360 / BASELINE_DEFENDER_COUNT);
+        const radius = 140 + vehicleIndex * 35;
+        const radians = (angle * Math.PI) / 180;
+        const x = Number(location.gameWorldX) + Math.cos(radians) * radius;
+        const z = Number(location.gameWorldZ) + Math.sin(radians) * radius;
+        const type = baselineTypes[vehicleIndex % baselineTypes.length];
+        return createDefenderVehicle(
+          type,
+          location.initialOwner,
+          `baseline_${sanitizeIdFragment(location.name)}_${index}`,
+          x,
+          z,
+          angle + 90
+        );
+      });
+    });
+}
+
+function buildObjectiveDefenseVehicles(objectiveLocation) {
+  if (!objectiveLocation || objectiveLocation.initialOwner === "Neutral") {
+    return [];
+  }
+
+  const profileKey = els.objectiveUnitProfile.value || "mixed";
+  const profileTypes = OBJECTIVE_PROFILE_TYPES[profileKey] || OBJECTIVE_PROFILE_TYPES.mixed;
+  const intensityLevel = Number(els.objectiveIntensity.value || 1);
+  const unitCount = OBJECTIVE_FORCE_COUNTS[intensityLevel] || OBJECTIVE_FORCE_COUNTS[1];
+
+  return Array.from({ length: unitCount }, (_, index) => {
+    const ringIndex = Math.floor(index / 6);
+    const angle = (index % 6) * 60 + ringIndex * 15;
+    const radius = 220 + ringIndex * 90;
+    const radians = (angle * Math.PI) / 180;
+    const x = Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius;
+    const z = Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius;
+    const type = profileTypes[index % profileTypes.length];
+    return createDefenderVehicle(
+      type,
+      objectiveLocation.initialOwner,
+      `objective_${sanitizeIdFragment(objectiveLocation.name)}_${index + 1}`,
+      x,
+      z,
+      angle + 180
+    );
+  });
+}
+
+function buildExportAirbases(map, locations) {
+  return locations
+    .filter((location) => location.gameWorldX != null && location.gameWorldZ != null)
+    .map((location) => ({
+      UniqueName: location.name,
+      DisplayName: location.name,
+      faction:
+        location.initialOwner && location.initialOwner !== "Neutral"
+          ? location.initialOwner
+          : els.enemyFaction.value,
+      Disabled: false,
+      Capturable: true,
+      CaptureDefense: 10,
+      CaptureRange: 1000,
+      Center: { x: location.gameWorldX, y: 0, z: location.gameWorldZ },
+      SelectionPosition: { x: location.gameWorldX, y: 0, z: location.gameWorldZ },
+      VerticalLandingPoints: [],
+      ServicePoints: [],
+      roads: { roads: [] },
+      runways: []
+    }));
 }
 
 function getCampaignPayload() {
   const map = mapByKey(state.selectedMapKey);
-  const startingAirbase = resolveGameLocation(map, els.airfieldSelect.value) || resolveGameLocation(map, els.targetLocation.value);
-  const targetLocation = resolveGameLocation(map, els.targetLocation.value) || startingAirbase;
-  const scenarioCount = Number(els.scenarioCount.value || 3);
+  const locations = getOperationalLocations(map).filter((entry) => entry.gameWorldX != null && entry.gameWorldZ != null);
+  const startingAirbase = resolveGameLocation(map, els.airfieldSelect.value);
+  const objectiveLocation = getOperationalLocations(map).find((entry) => entry.id === els.objectiveTarget.value || entry.name === els.objectiveTarget.value);
+
+  if (!startingAirbase) {
+    throw new Error("Select a valid starting airfield.");
+  }
+
+  if (startingAirbase.owner !== els.friendlyFaction.value) {
+    throw new Error(`Starting airfield must be owned by ${els.friendlyFaction.value}.`);
+  }
+
+  if (!objectiveLocation) {
+    throw new Error("Select a valid objective location.");
+  }
+
+  if (objectiveLocation.gameWorldX == null || objectiveLocation.gameWorldZ == null) {
+    throw new Error("Objective location must have in-game coordinates saved.");
+  }
 
   const factions = [
     {
@@ -466,42 +815,6 @@ function getCampaignPayload() {
     }
   ];
 
-  const airbases = configuredLocationsForMap(map.key)
-    .filter((entry) => entry.gameWorldX != null && entry.gameWorldZ != null)
-    .map((entry) => ({
-      UniqueName: entry.name,
-      DisplayName: entry.name,
-      faction: els.enemyFaction.value,
-      Disabled: false,
-      Capturable: true,
-      CaptureDefense: 10,
-      CaptureRange: 1000,
-      Center: { x: entry.gameWorldX, y: 0, z: entry.gameWorldZ },
-      SelectionPosition: { x: entry.gameWorldX, y: 0, z: entry.gameWorldZ },
-      VerticalLandingPoints: [],
-      ServicePoints: [],
-      roads: { roads: [] },
-      runways: []
-    }));
-
-  const generatedScenarios = Array.from({ length: scenarioCount }, (_, index) => ({
-    id: `scenario-${index + 1}`,
-    name: `${els.campaignName.value} - Scenario ${index + 1}`,
-    mapKey: map.key,
-    mapLabel: map.label,
-    startingAirbase: startingAirbase?.name || "",
-    targetLocation,
-    threatProfile: {
-      samSites: els.enableSam.checked,
-      artillery: els.enableArtillery.checked,
-      factories: els.enableFactories.checked,
-      groundUnits: els.enableGround.checked,
-      ships: els.enableShips.checked
-    },
-    factions,
-    airbases
-  }));
-
   return {
     paths: state.catalog.paths,
     campaignName: els.campaignName.value,
@@ -509,36 +822,67 @@ function getCampaignPayload() {
       description: els.description.value,
       mapKey: map.key,
       mapLabel: map.label,
-      startingAirbase: startingAirbase?.name || "",
-      targetLocation,
+      startingAirbase: startingAirbase.name,
+      objectiveLocation: objectiveLocation.name,
+      objectiveUnitProfile: els.objectiveUnitProfile.value,
+      objectiveIntensity: OBJECTIVE_INTENSITY_LABELS[Number(els.objectiveIntensity.value || 1)] || "Medium",
       startingRank: Number(els.startingRank.value || 5),
       startingCash: Number(els.startingCash.value || 250000),
       allowRespawn: els.allowRespawn.checked,
       timeOfDay: Number(els.timeOfDay.value || 10),
       weatherIntensity: Number(els.weatherIntensity.value || 0.2),
-      seedMission: els.seedMission.value
+      threatProfile: {
+        samSites: els.enableSam.checked,
+        artillery: els.enableArtillery.checked,
+        factories: els.enableFactories.checked,
+        groundUnits: els.enableGround.checked,
+        ships: els.enableShips.checked
+      }
     },
-    generatedScenarios
+    initialState: {
+      mapKey: map.key,
+      mapLabel: map.label,
+      startingAirbase,
+      objectiveLocation: {
+        name: objectiveLocation.name,
+        owner: objectiveLocation.initialOwner,
+        gameWorldX: objectiveLocation.gameWorldX,
+        gameWorldZ: objectiveLocation.gameWorldZ,
+        profile: els.objectiveUnitProfile.value,
+        intensity: OBJECTIVE_INTENSITY_LABELS[Number(els.objectiveIntensity.value || 1)] || "Medium"
+      },
+      factions,
+      locations,
+      airbases: buildExportAirbases(map, locations),
+      ownershipVehicles: [
+        ...buildBaselineDefenseVehicles(locations),
+        ...buildObjectiveDefenseVehicles(objectiveLocation)
+      ]
+    }
   };
 }
 
 async function exportCampaign() {
-  const result = await window.nuclearOptionApi.exportCampaign(getCampaignPayload());
-  if (!result?.ok) {
-    els.output.textContent = "Export failed.";
-    return;
+  try {
+    const result = await window.nuclearOptionApi.exportCampaign(getCampaignPayload());
+    if (!result?.ok) {
+      els.output.textContent = "Export failed.";
+      return;
+    }
+
+    const installLine = result.installed
+      ? `<div>Installed to game missions: ${result.installedMissionFolder}</div>`
+      : `<div>Install to game missions failed: ${result.installError || "unknown error"}</div>`;
+
+    els.output.innerHTML = `
+      <div>Campaign exported.</div>
+      <div>${result.campaignPath}</div>
+      <div>${result.missionFolder}</div>
+      ${installLine}
+    `;
+  } catch (error) {
+    els.output.innerHTML = `<div>${error.message}</div>`;
   }
-
-  const installLine = result.installed
-    ? `<div>Installed to game missions: ${result.installedMissionFolder}</div>`
-    : `<div>Install to game missions failed: ${result.installError || "unknown error"}</div>`;
-
-  els.output.innerHTML = `
-    <div>Campaign exported.</div>
-    <div>${result.campaignPath}</div>
-    <div>${result.missionFolder}</div>
-    ${installLine}
-  `;
 }
 
 async function saveConfiguredLocation() {
@@ -559,7 +903,7 @@ async function saveConfiguredLocation() {
 
   els.output.innerHTML = `
     <div>Location saved.</div>
-    <div>${result.row.name} → pixel ${result.row.pixelX}, ${result.row.pixelY}</div>
+    <div>${result.row.name} -> pixel ${result.row.pixelX}, ${result.row.pixelY}</div>
     <div>${result.filePath}</div>
   `;
 
@@ -569,11 +913,40 @@ async function saveConfiguredLocation() {
     pixelY: result.row.pixelY
   };
   renderLocationOptions();
+  renderObjectiveOptions();
+  renderOwnershipList();
   renderConfigLocationOptions();
+  updateWorkspaceSummary();
+  renderCampaignMarkers();
   els.configExistingLocation.value = result.row.name;
   loadConfigFormFromLocation(result.row.name);
   renderConfigMarkers();
   scrollConfigToPixel(result.row.pixelX, result.row.pixelY);
+}
+
+async function saveOwnershipChange(name, initialOwner) {
+  const result = await window.nuclearOptionApi.saveLocationOwnership({
+    mapKey: state.selectedMapKey,
+    name,
+    initialOwner
+  });
+
+  if (!result?.ok) {
+    els.output.innerHTML = `<div>Failed to save ownership for ${name}.</div>`;
+    return;
+  }
+
+  updateLocationOwnerInState(result.row.mapKey, result.row.name, result.row.initialOwner);
+  renderLocationOptions();
+  renderObjectiveOptions();
+  renderOwnershipList();
+  updateWorkspaceSummary();
+  renderCampaignMarkers();
+  els.output.innerHTML = `
+    <div>Ownership updated.</div>
+    <div>${result.row.name} -> ${result.row.initialOwner}</div>
+    <div>${result.filePath}</div>
+  `;
 }
 
 function onConfigMapClick(event) {
@@ -592,9 +965,7 @@ function onConfigMapClick(event) {
     return;
   }
 
-  const pixelX = (localX / width) * map.pixelSize.width;
-  const pixelY = (localY / height) * map.pixelSize.height;
-  setConfigPoint(pixelX, pixelY);
+  setConfigPoint((localX / width) * map.pixelSize.width, (localY / height) * map.pixelSize.height);
 }
 
 function onConfigMarkerClick(event) {
@@ -604,7 +975,6 @@ function onConfigMarkerClick(event) {
   }
 
   event.stopPropagation();
-
   const name = marker.dataset.locationName;
   els.configExistingLocation.value = name;
   loadConfigFormFromLocation(name);
@@ -615,21 +985,70 @@ function bindEvents() {
     if (!state.catalog) {
       return;
     }
+
     state.selectedMapKey = els.mapSelect.value;
     state.configPoint = null;
     renderLocationOptions();
+    renderObjectiveOptions();
+    renderOwnershipList();
     renderConfigLocationOptions();
     updateWorkspaceSummary();
     if (state.activeView === "config") {
       renderConfigView();
+      return;
     }
+
+    renderCampaignView();
   });
 
-  els.airfieldSelect.addEventListener("change", updateWorkspaceSummary);
-  els.targetLocation.addEventListener("change", updateWorkspaceSummary);
-  els.scenarioCount.addEventListener("input", updateWorkspaceSummary);
+  els.airfieldSelect.addEventListener("change", () => {
+    updateWorkspaceSummary();
+    renderCampaignMarkers();
+  });
+  els.objectiveTarget.addEventListener("change", () => {
+    updateWorkspaceSummary();
+    renderCampaignMarkers();
+  });
+  els.objectiveUnitProfile.addEventListener("change", updateWorkspaceSummary);
+  els.objectiveIntensity.addEventListener("input", () => {
+    renderObjectiveIntensityValue();
+    updateWorkspaceSummary();
+  });
+  els.friendlyFaction.addEventListener("change", () => {
+    renderLocationOptions();
+    renderObjectiveOptions();
+    renderOwnershipList();
+    updateWorkspaceSummary();
+    renderCampaignMarkers();
+  });
+  els.enemyFaction.addEventListener("change", () => {
+    renderObjectiveOptions();
+    renderOwnershipList();
+    updateWorkspaceSummary();
+    renderCampaignMarkers();
+  });
+
+  els.ownershipList.addEventListener("change", (event) => {
+    const select = event.target.closest("[data-owner-select]");
+    if (!select) {
+      return;
+    }
+
+    saveOwnershipChange(select.dataset.ownerSelect, select.value);
+  });
+
   els.showCampaignView.addEventListener("click", () => showView("campaign"));
   els.showConfigView.addEventListener("click", () => showView("config"));
+  els.campaignMapImage.addEventListener("load", () => {
+    state.campaignImageReady = true;
+    els.campaignEmpty.classList.add("hidden");
+    renderCampaignMarkers();
+  });
+  els.campaignMapImage.addEventListener("error", () => {
+    state.campaignImageReady = false;
+    els.campaignEmpty.textContent = "Campaign map failed to load.";
+    els.campaignEmpty.classList.remove("hidden");
+  });
   els.configMapImage.addEventListener("load", () => {
     state.configImageReady = true;
     els.configEmpty.classList.add("hidden");
@@ -644,6 +1063,11 @@ function bindEvents() {
     state.configZoom = Number(els.configZoom.value || 1);
     if (state.activeView === "config" && state.configImageReady) {
       renderConfigMarkers();
+      return;
+    }
+
+    if (state.activeView === "campaign" && state.campaignImageReady) {
+      renderCampaignMarkers();
     }
   });
   els.configStage.addEventListener("click", onConfigMapClick);
@@ -660,13 +1084,17 @@ function bindEvents() {
       renderConfigMarkers();
       return;
     }
+
     loadConfigFormFromLocation(els.configExistingLocation.value);
   });
   els.saveConfigLocation.addEventListener("click", saveConfiguredLocation);
   window.addEventListener("resize", () => {
     if (state.activeView === "config") {
       renderConfigMarkers();
+      return;
     }
+
+    renderCampaignMarkers();
   });
 
   document.getElementById("generate-campaign").addEventListener("click", exportCampaign);
@@ -676,21 +1104,33 @@ function bindEvents() {
 async function loadCatalog() {
   setText(els.scanMeta, "Scanning local install and mission folders...");
   state.catalog = await window.nuclearOptionApi.loadCatalog();
-  state.selectedMapKey = state.catalog.maps.find((entry) => entry.key === "Terrain1")?.key || state.catalog.maps[0]?.key || "Terrain1";
+  state.selectedMapKey =
+    state.catalog.maps.find((entry) => entry.key === "Terrain1")?.key ||
+    state.catalog.maps[0]?.key ||
+    "Terrain1";
   renderStats();
-  renderMissionList();
   renderMapOptions();
   renderFactionOptions();
-  renderSeedMissions();
   renderLocationOptions();
+  renderObjectiveOptions();
+  renderObjectiveIntensityValue();
+  renderOwnershipList();
   renderConfigLocationOptions();
   updateWorkspaceSummary();
   updateScanMeta();
+  renderCampaignView();
 }
 
 bindEvents();
 state.configZoom = Number(els.configZoom?.value || 1);
+renderObjectiveIntensityValue();
 showView("campaign");
 updateWorkspaceSummary();
+renderCampaignView();
 renderConfigView();
-setText(els.scanMeta, "Click Reload Catalog to initialize the app.");
+setText(els.scanMeta, "Loading saved campaign state...");
+window.setTimeout(() => {
+  loadCatalog().catch((error) => {
+    setText(els.scanMeta, `Auto-load failed: ${error.message}`);
+  });
+}, AUTOLOAD_DELAY_MS);

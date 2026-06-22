@@ -1,6 +1,13 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
-const { buildCatalog, exportCampaign, saveMapAnchor, upsertConfiguredLocation, DEFAULT_PATHS } = require("./lib/catalog");
+const {
+  buildCatalog,
+  exportCampaign,
+  saveMapAnchor,
+  saveLocationOwnership,
+  upsertConfiguredLocation,
+  DEFAULT_PATHS
+} = require("./lib/catalog");
 
 let mainWindow;
 
@@ -37,6 +44,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle("locations:save", async (_event, payload) => {
     return upsertConfiguredLocation(payload);
+  });
+
+  ipcMain.handle("locations:saveOwnership", async (_event, payload) => {
+    return saveLocationOwnership(payload);
   });
 
   ipcMain.handle("dialog:chooseDirectory", async () => {

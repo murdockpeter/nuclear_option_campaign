@@ -24,6 +24,18 @@ const DEFAULT_PATHS = {
 
 const CUSTOM_ANCHORS_PATH = path.join(process.cwd(), "data", "map-anchors.json");
 const HEARTLAND_PIXEL_LOCATIONS_PATH = path.join(process.cwd(), "data", "heartland_pixel_locations.csv");
+const HEARTLAND_LOCATION_HEADERS = [
+  "map_key",
+  "name",
+  "pixel_x",
+  "pixel_y",
+  "ui_left_percent",
+  "ui_top_percent",
+  "game_world_x",
+  "game_world_z",
+  "initial_owner",
+  "notes"
+];
 
 const MAP_PRESETS = {
   Terrain1: {
@@ -90,6 +102,16 @@ function writeCsv(filePath, rows) {
   fs.writeFileSync(filePath, `${lines.join("\n")}\n`);
 }
 
+function applyHeaders(rows, headers) {
+  return rows.map((row) => {
+    const normalized = {};
+    for (const header of headers) {
+      normalized[header] = row[header] ?? "";
+    }
+    return normalized;
+  });
+}
+
 function loadHeartlandPixelLookup() {
   if (!safeExists(HEARTLAND_PIXEL_LOCATIONS_PATH)) {
     return {};
@@ -130,6 +152,7 @@ function loadConfiguredLocationsByMap() {
         uiTopPercent: Number(row.ui_top_percent || 0),
         gameWorldX: row.game_world_x === "" ? null : Number(row.game_world_x),
         gameWorldZ: row.game_world_z === "" ? null : Number(row.game_world_z),
+        initialOwner: row.initial_owner || "",
         notes: row.notes || ""
       }));
 
@@ -498,7 +521,7 @@ function exportCampaign(payload) {
     sourcePaths: payload.paths,
     campaignName,
     parameters: payload.parameters,
-    generatedScenarios: payload.generatedScenarios
+    initialState: payload.initialState
   };
 
   const campaignPath = path.join(exportRoot, "campaign.json");
@@ -558,8 +581,8 @@ function exportCampaign(payload) {
     containers: [],
     missiles: [],
     pilots: [],
-    factions: payload.generatedScenarios[0]?.factions || [],
-    airbases: payload.generatedScenarios[0]?.airbases || [],
+    factions: payload.initialState?.factions || [],
+    airbases: payload.initialState?.airbases || [],
     unitInventories: [],
     objectives: {
       Objectives: [
@@ -571,6 +594,8 @@ function exportCampaign(payload) {
       Outcomes: []
     }
   };
+
+  missionJson.vehicles = payload.initialState?.ownershipVehicles || [];
 
   fs.writeFileSync(
     path.join(missionFolder, `${campaignName}.json`),
@@ -689,12 +714,10 @@ function upsertConfiguredLocation(payload) {
   const top = ((pixelY / preset.pixelSize.height) * 100).toFixed(2);
 
   const rows = safeExists(HEARTLAND_PIXEL_LOCATIONS_PATH)
-    ? parseCsv(fs.readFileSync(HEARTLAND_PIXEL_LOCATIONS_PATH, "utf8"))
+    ? applyHeaders(parseCsv(fs.readFileSync(HEARTLAND_PIXEL_LOCATIONS_PATH, "utf8")), HEARTLAND_LOCATION_HEADERS)
     : [];
 
-  const headers = rows[0]
-    ? Object.keys(rows[0])
-    : ["map_key", "name", "pixel_x", "pixel_y", "ui_left_percent", "ui_top_percent", "game_world_x", "game_world_z", "notes"];
+  const headers = HEARTLAND_LOCATION_HEADERS;
 
   const existing = rows.find((row) => row.map_key === mapKey && normalizeLocationKey(row.name) === normalizeLocationKey(name));
   const target = existing || Object.fromEntries(headers.map((header) => [header, ""]));
@@ -707,6 +730,7 @@ function upsertConfiguredLocation(payload) {
   target.ui_top_percent = top;
   target.game_world_x = gameWorldX;
   target.game_world_z = gameWorldZ;
+  target.initial_owner = target.initial_owner || "";
   target.notes = notes;
 
   if (!existing) {
@@ -727,7 +751,44 @@ function upsertConfiguredLocation(payload) {
       uiTopPercent: Number(target.ui_top_percent),
       gameWorldX: target.game_world_x === "" ? null : Number(target.game_world_x),
       gameWorldZ: target.game_world_z === "" ? null : Number(target.game_world_z),
+      initialOwner: target.initial_owner || "",
       notes: target.notes
+    }
+  };
+}
+
+function saveLocationOwnership(payload) {
+  const mapKey = payload?.mapKey;
+  const name = (payload?.name || "").trim();
+  const initialOwner = (payload?.initialOwner || "Neutral").trim();
+
+  if (!mapKey || !name) {
+    throw new Error("Invalid ownership payload");
+  }
+
+  if (mapKey !== "Terrain1") {
+    throw new Error(`Ownership saving is not implemented for ${mapKey} yet`);
+  }
+
+  const rows = safeExists(HEARTLAND_PIXEL_LOCATIONS_PATH)
+    ? applyHeaders(parseCsv(fs.readFileSync(HEARTLAND_PIXEL_LOCATIONS_PATH, "utf8")), HEARTLAND_LOCATION_HEADERS)
+    : [];
+
+  const existing = rows.find((row) => row.map_key === mapKey && normalizeLocationKey(row.name) === normalizeLocationKey(name));
+  if (!existing) {
+    throw new Error(`No configured location row found for ${name}`);
+  }
+
+  existing.initial_owner = initialOwner;
+  writeCsv(HEARTLAND_PIXEL_LOCATIONS_PATH, rows);
+
+  return {
+    ok: true,
+    filePath: HEARTLAND_PIXEL_LOCATIONS_PATH,
+    row: {
+      mapKey,
+      name: existing.name,
+      initialOwner: existing.initial_owner || "Neutral"
     }
   };
 }
@@ -740,5 +801,6 @@ module.exports = {
   buildCatalog,
   exportCampaign,
   saveMapAnchor,
+  saveLocationOwnership,
   upsertConfiguredLocation
 };
