@@ -553,27 +553,8 @@ function buildPrimaryObjective(payload) {
       ],
       Outcomes: []
     },
-    startObjective: {
-      UniqueName: "Start_PrimaryObjective",
-      Faction: "",
-      DisplayName: "",
-      Hidden: true,
-      Type: 1,
-      TypeName: "StartObjective",
-      Data: [
-        {
-          StringValue: "Destroy_PrimaryObjective",
-          FloatValue: 0,
-          VectorValue: { x: 0, y: 0, z: 0 }
-        }
-      ],
-      Outcomes: []
-    },
     showMessage: {
       UniqueName: "ShowMissionBrief",
-      Faction: "",
-      DisplayName: "",
-      Hidden: true,
       Type: 3,
       TypeName: "ShowMessage",
       Data: [
@@ -685,13 +666,11 @@ function exportCampaign(payload) {
           Type: 0,
           TypeName: "None",
           Data: [],
-          Outcomes: ["ShowMissionBrief", "Start_PrimaryObjective"]
+          Outcomes: ["ShowMissionBrief"]
         },
-        primaryObjectiveBundle.objective,
-        primaryObjectiveBundle.startObjective,
-        primaryObjectiveBundle.showMessage
+        primaryObjectiveBundle.objective
       ],
-      Outcomes: []
+      Outcomes: [primaryObjectiveBundle.showMessage]
     }
   };
 
