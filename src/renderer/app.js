@@ -20,12 +20,17 @@ const OBJECTIVE_FORCE_COUNTS = [4, 8, 12, 18];
 const BASELINE_DEFENDER_COUNT = 3;
 const AUTOLOAD_DELAY_MS = 350;
 const DEFAULT_FACTION_SUPPLIES = [
-  { unitType: "COIN", count: 16 },
-  { unitType: "trainer", count: 16 },
+  { unitType: "COIN", count: 12 },
+  { unitType: "trainer", count: 12 },
   { unitType: "AttackHelo1", count: 12 },
+  { unitType: "UtilityHelo1", count: 12 },
+  { unitType: "CAS1", count: 12 },
   { unitType: "Multirole1", count: 12 },
   { unitType: "SmallFighter1", count: 12 },
-  { unitType: "EW1", count: 8 }
+  { unitType: "QuadVTOL1", count: 12 },
+  { unitType: "FastBomber1", count: 12 },
+  { unitType: "EW1", count: 12 },
+  { unitType: "Revoker", count: 12 }
 ];
 const LOCATION_EXPORT_NAME_OVERRIDES = {
   Terrain1: {
@@ -136,6 +141,14 @@ function inferDefaultOwner(map, locationName) {
   return known?.faction || "Neutral";
 }
 
+function inferDefaultAltitude(map, locationName) {
+  const known = map?.airfields?.find((entry) => {
+    return normalizeName(entry.name) === normalizeName(locationName) || normalizeName(entry.id) === normalizeName(locationName);
+  });
+
+  return known?.y ?? 0;
+}
+
 function getOperationalLocations(map = mapByKey(state.selectedMapKey)) {
   if (!map) {
     return [];
@@ -150,6 +163,7 @@ function getOperationalLocations(map = mapByKey(state.selectedMapKey)) {
         pixelX: entry.pixelX,
         pixelY: entry.pixelY,
         gameWorldX: entry.gameWorldX,
+        gameWorldY: inferDefaultAltitude(map, entry.name),
         gameWorldZ: entry.gameWorldZ,
         notes: entry.notes || "",
         initialOwner: entry.initialOwner || inferDefaultOwner(map, entry.name)
@@ -164,6 +178,7 @@ function getOperationalLocations(map = mapByKey(state.selectedMapKey)) {
       pixelX: null,
       pixelY: null,
       gameWorldX: entry.x,
+      gameWorldY: entry.y ?? 0,
       gameWorldZ: entry.z,
       notes: "",
       initialOwner: entry.faction || "Neutral"
@@ -185,6 +200,7 @@ function resolveGameLocation(map, selectedValue) {
     id: location.id,
     name: location.name,
     x: location.gameWorldX,
+    y: location.gameWorldY ?? 0,
     z: location.gameWorldZ,
     owner: location.initialOwner
   };
@@ -691,23 +707,212 @@ function getExportLocationName(mapKey, locationName) {
   return LOCATION_EXPORT_NAME_OVERRIDES[mapKey]?.[locationName] || locationName;
 }
 
-function createDefenderVehicle(type, faction, name, x, z, angleDegrees) {
+function createDefenderVehicle(type, faction, name, x, y, z, angleDegrees, options = {}) {
   const radians = (angleDegrees * Math.PI) / 180;
   const half = radians / 2;
   return {
     type,
     faction,
     UniqueName: name,
-    globalPosition: { x, y: 0, z },
+    globalPosition: { x, y, z },
     rotation: { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) },
     CaptureStrength: { IsOverride: false, Value: 0 },
     CaptureDefense: { IsOverride: false, Value: 0 },
     unitCustomID: "",
     spawnTiming: "",
-    holdPosition: true,
+    holdPosition: options.holdPosition ?? true,
     skill: 0.7,
-    waypoints: []
+    waypoints: options.waypoints || []
   };
+}
+
+function createWaypoint(x, y, z, objective = "Unit Spawn") {
+  return {
+    position: { x, y, z },
+    objective
+  };
+}
+
+function distanceBetweenLocations(a, b) {
+  const dx = Number(a.gameWorldX) - Number(b.gameWorldX);
+  const dz = Number(a.gameWorldZ) - Number(b.gameWorldZ);
+  return Math.sqrt(dx * dx + dz * dz);
+}
+
+function buildFrontlinePairs(locations) {
+  const friendlyOwned = locations.filter((location) => location.initialOwner === els.friendlyFaction.value);
+  const enemyOwned = locations.filter((location) => location.initialOwner === els.enemyFaction.value);
+  const pairMap = new Map();
+
+  function registerNearestPairs(source, targets) {
+    for (const location of source) {
+      let nearest = null;
+      for (const target of targets) {
+        const distance = distanceBetweenLocations(location, target);
+        if (!nearest || distance < nearest.distance) {
+          nearest = { target, distance };
+        }
+      }
+
+      if (!nearest) {
+        continue;
+      }
+
+      const key = [location.name, nearest.target.name].sort().join("::");
+      const current = pairMap.get(key);
+      if (!current || nearest.distance < current.distance) {
+        pairMap.set(key, {
+          a: location,
+          b: nearest.target,
+          distance: nearest.distance
+        });
+      }
+    }
+  }
+
+  registerNearestPairs(friendlyOwned, enemyOwned);
+  registerNearestPairs(enemyOwned, friendlyOwned);
+
+  return Array.from(pairMap.values())
+    .sort((left, right) => left.distance - right.distance)
+    .slice(0, 4);
+}
+
+function buildFrontlineMobileVehicles(locations) {
+  if (!els.enableGround.checked) {
+    return [];
+  }
+
+  const pairs = buildFrontlinePairs(locations);
+  let index = 0;
+  const vehicles = [];
+  const patrolTypes = ["AFV8_IFV", "AFV8_APC", "SPAAG1"];
+  const convoyTypes = ["Truck2-FT", "LightTruck1_AT", "AFV8_IFV", "AFV8_APC"];
+
+  function addGroup(origin, opposing, pairIndex, prefix, types, laneOffset) {
+    const dx = Number(opposing.gameWorldX) - Number(origin.gameWorldX);
+    const dz = Number(opposing.gameWorldZ) - Number(origin.gameWorldZ);
+    const length = Math.max(Math.sqrt(dx * dx + dz * dz), 1);
+    const nx = dx / length;
+    const nz = dz / length;
+    const px = -nz;
+    const pz = nx;
+    const startX = Number(origin.gameWorldX) + nx * 220 + px * laneOffset;
+    const startY = Number(origin.gameWorldY ?? 0);
+    const startZ = Number(origin.gameWorldZ) + nz * 220 + pz * laneOffset;
+    const forwardX = Number(origin.gameWorldX) + dx * 0.38 + px * laneOffset;
+    const forwardY = startY * 0.62 + Number(opposing.gameWorldY ?? 0) * 0.38;
+    const forwardZ = Number(origin.gameWorldZ) + dz * 0.38 + pz * laneOffset;
+    const flankX = Number(origin.gameWorldX) + dx * 0.32 + px * (laneOffset + 220);
+    const flankY = startY * 0.68 + Number(opposing.gameWorldY ?? 0) * 0.32;
+    const flankZ = Number(origin.gameWorldZ) + dz * 0.32 + pz * (laneOffset + 220);
+    const heading = (Math.atan2(dz, dx) * 180) / Math.PI;
+
+    for (let vehicleIndex = 0; vehicleIndex < types.length; vehicleIndex += 1) {
+      index += 1;
+      const spacing = vehicleIndex * 28;
+      const spawnX = startX - nx * spacing;
+      const spawnZ = startZ - nz * spacing;
+      vehicles.push(
+        createDefenderVehicle(
+          types[vehicleIndex],
+          origin.initialOwner,
+          `${prefix}_${sanitizeIdFragment(origin.name)}_${pairIndex + 1}_${index}`,
+          spawnX,
+          startY,
+          spawnZ,
+          heading,
+          {
+            holdPosition: true,
+            waypoints: [
+              createWaypoint(startX, startY, startZ, "Unit Spawn"),
+              createWaypoint(forwardX, forwardY, forwardZ, `${origin.name} Frontline`),
+              createWaypoint(flankX, flankY, flankZ, `${origin.name} Patrol`),
+              createWaypoint(startX, startY, startZ, origin.name)
+            ]
+          }
+        )
+      );
+    }
+  }
+
+  pairs.forEach((pair, pairIndex) => {
+    addGroup(pair.a, pair.b, pairIndex, "frontline_patrol", patrolTypes, 120);
+    addGroup(pair.b, pair.a, pairIndex, "frontline_patrol", patrolTypes, -120);
+    addGroup(pair.a, pair.b, pairIndex, "frontline_convoy", convoyTypes, 200);
+    addGroup(pair.b, pair.a, pairIndex, "frontline_convoy", convoyTypes, -200);
+  });
+
+  return vehicles;
+}
+
+function buildFrontlineActionVehicles(locations) {
+  if (!els.enableGround.checked) {
+    return [];
+  }
+
+  const pairs = buildFrontlinePairs(locations);
+  let index = 0;
+  const vehicles = [];
+  const friendlyTypes = ["AFV8_IFV", "AFV8_APC", "MBT1"];
+  const enemyTypes = ["AFV8_IFV", "SPAAG1", "MBT1"];
+  const supportType = els.enableArtillery.checked ? "Truck2-FT" : "AFV8_APC";
+  const samType = els.enableSam.checked ? "RadarSAM1" : "SPAAG1";
+
+  pairs.forEach((pair, pairIndex) => {
+    const dx = Number(pair.b.gameWorldX) - Number(pair.a.gameWorldX);
+    const dz = Number(pair.b.gameWorldZ) - Number(pair.a.gameWorldZ);
+    const length = Math.max(Math.sqrt(dx * dx + dz * dz), 1);
+    const nx = dx / length;
+    const nz = dz / length;
+    const px = -nz;
+    const pz = nx;
+    const midpointX = Number(pair.a.gameWorldX) + dx * 0.5;
+    const midpointY = Number(pair.a.gameWorldY ?? 0) * 0.5 + Number(pair.b.gameWorldY ?? 0) * 0.5;
+    const midpointZ = Number(pair.a.gameWorldZ) + dz * 0.5;
+    const friendlyAnchorX = midpointX - nx * 360 + px * 150;
+    const friendlyAnchorZ = midpointZ - nz * 360 + pz * 150;
+    const enemyAnchorX = midpointX + nx * 360 - px * 150;
+    const enemyAnchorZ = midpointZ + nz * 360 - pz * 150;
+    const contactX = midpointX + px * ((pairIndex % 2 === 0 ? 1 : -1) * 90);
+    const contactZ = midpointZ + pz * ((pairIndex % 2 === 0 ? 1 : -1) * 90);
+    const friendlyHeading = (Math.atan2(dz, dx) * 180) / Math.PI;
+    const enemyHeading = friendlyHeading + 180;
+
+    function addSkirmishElement(faction, types, anchorX, anchorZ, heading, offsetSign) {
+      types.forEach((type, localIndex) => {
+        index += 1;
+        const lateral = (localIndex - 1) * 45 * offsetSign;
+        const depth = localIndex * 35;
+        const spawnX = anchorX + px * lateral - nx * depth * offsetSign;
+        const spawnZ = anchorZ + pz * lateral - nz * depth * offsetSign;
+        vehicles.push(
+          createDefenderVehicle(
+            type,
+            faction,
+            `frontline_action_${sanitizeIdFragment(faction)}_${pairIndex + 1}_${index}`,
+            spawnX,
+            midpointY,
+            spawnZ,
+            heading,
+            {
+              holdPosition: true,
+              waypoints: [
+                createWaypoint(anchorX, midpointY, anchorZ, "Unit Spawn"),
+                createWaypoint(contactX, midpointY, contactZ, "Frontline Contact"),
+                createWaypoint(anchorX, midpointY, anchorZ, "Frontline Rally")
+              ]
+            }
+          )
+        );
+      });
+    }
+
+    addSkirmishElement(pair.a.initialOwner, [...friendlyTypes, supportType], friendlyAnchorX, friendlyAnchorZ, friendlyHeading, 1);
+    addSkirmishElement(pair.b.initialOwner, [...enemyTypes, samType], enemyAnchorX, enemyAnchorZ, enemyHeading, -1);
+  });
+
+  return vehicles;
 }
 
 function buildBaselineDefenseVehicles(locations) {
@@ -723,6 +928,7 @@ function buildBaselineDefenseVehicles(locations) {
         const radius = 140 + vehicleIndex * 35;
         const radians = (angle * Math.PI) / 180;
         const x = Number(location.gameWorldX) + Math.cos(radians) * radius;
+        const y = Number(location.gameWorldY ?? 0);
         const z = Number(location.gameWorldZ) + Math.sin(radians) * radius;
         const type = baselineTypes[vehicleIndex % baselineTypes.length];
         return createDefenderVehicle(
@@ -730,6 +936,7 @@ function buildBaselineDefenseVehicles(locations) {
           location.initialOwner,
           `baseline_${sanitizeIdFragment(location.name)}_${index}`,
           x,
+          y,
           z,
           angle + 90
         );
@@ -753,6 +960,7 @@ function buildObjectiveDefenseVehicles(objectiveLocation) {
     const radius = 220 + ringIndex * 90;
     const radians = (angle * Math.PI) / 180;
     const x = Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius;
+    const y = Number(objectiveLocation.gameWorldY ?? 0);
     const z = Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius;
     const type = profileTypes[index % profileTypes.length];
     return createDefenderVehicle(
@@ -760,6 +968,7 @@ function buildObjectiveDefenseVehicles(objectiveLocation) {
       objectiveLocation.initialOwner,
       `objective_${sanitizeIdFragment(objectiveLocation.name)}_${index + 1}`,
       x,
+      y,
       z,
       angle + 180
     );
@@ -782,8 +991,8 @@ function buildExportAirbases(map, locations) {
       Capturable: true,
       CaptureDefense: 10,
       CaptureRange: 1000,
-      Center: { x: location.gameWorldX, y: 0, z: location.gameWorldZ },
-      SelectionPosition: { x: location.gameWorldX, y: 0, z: location.gameWorldZ },
+      Center: { x: location.gameWorldX, y: location.gameWorldY ?? 0, z: location.gameWorldZ },
+      SelectionPosition: { x: location.gameWorldX, y: location.gameWorldY ?? 0, z: location.gameWorldZ },
       VerticalLandingPoints: [],
       ServicePoints: [],
       roads: { roads: [] },
@@ -828,8 +1037,8 @@ function getCampaignPayload() {
       killReward: 1,
       startingWarheads: 0,
       reserveWarheads: 0,
-      reserveAirframes: 24,
-      extraReservesPerPlayer: 4,
+      reserveAirframes: 72,
+      extraReservesPerPlayer: 12,
       AIAircraftLimit: 6,
       reduceAIPerFriendlyPlayer: 1,
       addAIPerEnemyPlayer: 1,
@@ -859,8 +1068,8 @@ function getCampaignPayload() {
       killReward: 1,
       startingWarheads: 0,
       reserveWarheads: 0,
-      reserveAirframes: 24,
-      extraReservesPerPlayer: 4,
+      reserveAirframes: 72,
+      extraReservesPerPlayer: 12,
       AIAircraftLimit: 6,
       reduceAIPerFriendlyPlayer: 1,
       addAIPerEnemyPlayer: 1,
@@ -911,6 +1120,7 @@ function getCampaignPayload() {
         name: objectiveLocation.name,
         owner: objectiveLocation.initialOwner,
         gameWorldX: objectiveLocation.gameWorldX,
+        gameWorldY: objectiveLocation.gameWorldY ?? 0,
         gameWorldZ: objectiveLocation.gameWorldZ,
         profile: els.objectiveUnitProfile.value,
         intensity: OBJECTIVE_INTENSITY_LABELS[Number(els.objectiveIntensity.value || 1)] || "Medium"
@@ -920,7 +1130,9 @@ function getCampaignPayload() {
       airbases: buildExportAirbases(map, locations),
       ownershipVehicles: [
         ...buildBaselineDefenseVehicles(locations),
-        ...buildObjectiveDefenseVehicles(objectiveLocation)
+        ...buildObjectiveDefenseVehicles(objectiveLocation),
+        ...buildFrontlineActionVehicles(locations),
+        ...buildFrontlineMobileVehicles(locations)
       ]
     }
   };

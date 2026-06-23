@@ -4,7 +4,7 @@ Terrain1,North Coast Enrichment Plant,1225,35,40.83,1.17,,,,"Visible north-coast
 Terrain1,Maris Airport,1989,768,66.30,25.60,13308,18727,,"Visible runway footprint on northeast landmass"
 Terrain1,Central Gulf Airbase,1645,1270,54.83,42.33,,,,"Visible central gulf urban/airbase footprint"
 Terrain1,K92 Highway Strip,2185,1046,72.83,34.87,18909,12593,,"Approximate visible location on eastern side; verify against mission editor"
-Terrain1,Desert Forward Strip,2255,1440,75.17,48.00,,,Primeva,"Approximate visible location on eastern desert side; verify against mission editor"
+Terrain1,Desert Forward Strip,2255,1440,75.17,48.00,13404,-7795,Primeva,"Approximate visible location on eastern desert side; verify against mission editor"
 Terrain1,Dustbowl Highway Strip,1989,1783,66.30,59.43,13444,-7901,,"Approximate visible location on eastern desert side; verify against mission editor"
 Terrain1,Southern Interior Base,1540,2395,51.33,79.83,,,,"Visible southern inland footprint"
 Terrain1,Agrapol Airbase,1465,2484,48.83,82.80,-1079,-27277,,"Visible southern runway/airbase footprint"

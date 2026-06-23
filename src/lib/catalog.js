@@ -295,6 +295,7 @@ function missionDescriptor(folderPath) {
       name: airbase.DisplayName || airbase.UniqueName,
       faction: airbase.faction || "",
       x: airbase.SelectionPosition?.x ?? airbase.Center?.x ?? 0,
+      y: airbase.SelectionPosition?.y ?? airbase.Center?.y ?? 0,
       z: airbase.SelectionPosition?.z ?? airbase.Center?.z ?? 0,
       ui: resolveLocationUi(
         mapPath,
@@ -343,6 +344,7 @@ function inferScenarioStartAirfields(mission, mapPath) {
     name: airbase.DisplayName || airbase.UniqueName,
     faction: airbase.faction || "",
     x: airbase.SelectionPosition?.x ?? airbase.Center?.x ?? 0,
+    y: airbase.SelectionPosition?.y ?? airbase.Center?.y ?? 0,
     z: airbase.SelectionPosition?.z ?? airbase.Center?.z ?? 0,
     ui: resolveLocationUi(mapPath, airbase.DisplayName, airbase.UniqueName)
   }))).concat((preset.airfields || []).filter((presetAirfield) => {
@@ -579,6 +581,85 @@ function buildPrimaryObjective(payload) {
   };
 }
 
+function buildLegacyFactionObjectives(payload) {
+  const initialState = payload.initialState || {};
+  const startingAirbase = initialState.startingAirbase || {};
+  const objective = initialState.objectiveLocation || {};
+  const objectiveName = objective.name || "Objective Area";
+  const startName = payload.parameters.startingAirbase || startingAirbase.name || "Home Airbase";
+  const startX = Number(startingAirbase.gameWorldX ?? startingAirbase.x ?? 0);
+  const startY = Number(startingAirbase.gameWorldY ?? startingAirbase.y ?? 0);
+  const startZ = Number(startingAirbase.gameWorldZ ?? startingAirbase.z ?? 0);
+  const objectiveX = Number(objective.gameWorldX ?? 0);
+  const objectiveY = Number(objective.gameWorldY ?? 0);
+  const objectiveZ = Number(objective.gameWorldZ ?? 0);
+  const ingressX = (startX + objectiveX) / 2;
+  const ingressY = (startY + objectiveY) / 2;
+  const ingressZ = (startZ + objectiveZ) / 2;
+  const objectiveTargets = (initialState.ownershipVehicles || [])
+    .filter((vehicle) => vehicle.UniqueName?.startsWith(`objective_${sanitizeName(objectiveName).replace(/\s+/g, "_").toLowerCase()}_`))
+    .map((vehicle) => vehicle.UniqueName);
+
+  return [
+    {
+      objectiveName: "Mission Start",
+      message: `Start from ${startName}. Proceed toward ${objectiveName} and destroy the enemy concentration in the target area.`,
+      positionTrigger: false,
+      victoryObjective: false,
+      nonSequentialObjective: false,
+      triggerRange: 0,
+      position: {
+        x: 0,
+        y: 0,
+        z: 0
+      },
+      targetUnits: []
+    },
+    {
+      objectiveName: "Ingress",
+      message: `Proceed toward ${objectiveName}. This marker indicates the general axis of advance from ${startName}.`,
+      positionTrigger: true,
+      victoryObjective: false,
+      nonSequentialObjective: false,
+      triggerRange: 300,
+      position: {
+        x: ingressX,
+        y: ingressY,
+        z: ingressZ
+      },
+      targetUnits: []
+    },
+    {
+      objectiveName,
+      message: `${objectiveName} is the designated objective area. Expect ${objective.profile || "mixed"} resistance at ${objective.intensity || "medium"} intensity.`,
+      positionTrigger: true,
+      victoryObjective: false,
+      nonSequentialObjective: false,
+      triggerRange: 350,
+      position: {
+        x: objectiveX,
+        y: objectiveY,
+        z: objectiveZ
+      },
+      targetUnits: []
+    },
+    {
+      objectiveName: `Destroy ${objectiveName}`,
+      message: `${objectiveName} has been neutralised.`,
+      positionTrigger: false,
+      victoryObjective: true,
+      nonSequentialObjective: false,
+      triggerRange: 0,
+      position: {
+        x: objectiveX,
+        y: objectiveY,
+        z: objectiveZ
+      },
+      targetUnits: objectiveTargets
+    }
+  ];
+}
+
 function exportCampaign(payload) {
   const campaignName = sanitizeName(payload?.campaignName || payload?.missionName || "Untitled Campaign");
   const exportRoot = path.join(process.cwd(), "exports", campaignName);
@@ -600,6 +681,11 @@ function exportCampaign(payload) {
   ensureDir(missionFolder);
   const generatedBriefing = buildGeneratedBriefing(payload);
   const primaryObjectiveBundle = buildPrimaryObjective(payload);
+  const legacyFactionObjectives = buildLegacyFactionObjectives(payload);
+  const factions = (payload.initialState?.factions || []).map((faction, index) => ({
+    ...faction,
+    objectives: index === 0 ? legacyFactionObjectives : Array.isArray(faction.objectives) ? faction.objectives : []
+  }));
 
   const missionJson = {
     JsonVersion: 5,
@@ -653,7 +739,7 @@ function exportCampaign(payload) {
     containers: [],
     missiles: [],
     pilots: [],
-    factions: payload.initialState?.factions || [],
+    factions,
     airbases: payload.initialState?.airbases || [],
     unitInventories: [],
     objectives: {
