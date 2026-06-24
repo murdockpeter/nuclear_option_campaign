@@ -1,40 +1,83 @@
 # Nuclear Option Campaign Generator
 
-Electron desktop app for building a persistent multiplayer campaign layer around a local `Nuclear Option` install.
+Electron desktop app for authoring persistent multiplayer campaign start states for `Nuclear Option`.
 
-## Overview
+## What It Does
 
-This repository now supports three main authoring flows:
+This project scans a local `Nuclear Option` install, lets you define named operational locations, and exports playable mission files that act as the opening state for a larger campaign.
+
+The current workflow is centered on `Heartland`, with manually curated map anchors, in-game coordinates, persistent ownership, advanced target configuration, and mission export directly into the live game missions folder.
+
+## Core Workflow
+
+The app is organized around three main workspaces:
 
 1. `Campaign Setup`
-   Choose the operational map, starting airfield, factions, initial ownership, logistics, and the immediate objective.
+   Pick the map, starting airfield, factions, starting rank/cash, target objective, logistics, and initial ownership.
 
 2. `Configure Locations`
-   Click directly on the map image, save named locations, and associate each one with exact in-game `X/Z` coordinates.
+   Click directly on the map image, name the location, capture exact map pixels, and associate them with in-game `X/Z` coordinates.
 
 3. `Advanced Targets`
-   Control the objective package, enemy resistance mix, patrol pressure, convoy/front-line activity, and randomness with more precision than the main setup page.
+   Tune the objective package, enemy resistance types, patrol density, convoy pressure, front-line activity, and enemy air patrol radius.
 
-The current focus is still `Heartland`, but the generator is now beyond simple seeding. It builds a reusable campaign start-state, persists it between exports, and uses that saved state to drive follow-on generation.
-
-## Current Capabilities
+## Current Feature Set
 
 - Scans the local `Nuclear Option` install and mission folders.
-- Auto-loads the current catalog and saved campaign state on startup.
-- Persists campaign state to `data/campaign_state.json`.
-- Stores named map locations in `data/heartland_pixel_locations.csv`.
-- Lets you manually assign initial ownership for each configured location.
-- Generates exportable starting missions for multiplayer campaign play.
-- Installs generated missions into the live game missions folder when export succeeds.
-- Shows operational locations as ownership nodes on the campaign map.
-- Marks the starting airfield and current target/objective visually on the map.
-- Supports a dedicated advanced-targeting workspace for finer threat control.
+- Loads and saves persistent campaign state in `data/campaign_state.json`.
+- Stores named Heartland map locations in `data/heartland_pixel_locations.csv`.
+- Supports manual ownership assignment per named location.
+- Exports a fresh mission start-state instead of seeding from an existing scenario.
+- Installs exported missions into the live `Nuclear Option` missions folder.
+- Persists faction logistics, ownership, objective metadata, and generated order-of-battle records.
+- Displays configured locations as ownership nodes on the UI map.
+- Highlights the selected starting airfield and objective on the campaign map.
+- Supports advanced target generation for ground, factories, patrols, convoys, and air threats.
+- Generates airborne enemy helicopter and fixed-wing patrols as real `aircraft` entries.
+- Draws configurable helo and fixed-wing patrol radius overlays on the map.
+- Includes mission briefing text showing the intended starting airfield and primary objective.
 
-## Advanced Targeting
+## Campaign Setup
 
-The `Advanced Targets` workspace adds more explicit control over what gets generated around the objective area and across the wider operational theater.
+The main setup page currently supports:
 
-### Objective Package Controls
+- map selection
+- starting airfield selection
+- friendly faction selection
+- enemy faction selection
+- starting rank
+- starting cash
+- target / objective selection
+- objective enemy profile
+- objective force concentration
+- time of day
+- weather intensity
+- respawn toggle
+- broad threat toggles
+- manual initial ownership per named location
+- faction reserve airframes and funds via persistent campaign state
+
+The right-side map reflects the current selected map, ownership, objective, and patrol-radius overlays.
+
+## Configure Locations
+
+The location configuration page is the source of truth for the authored operational map layer.
+
+For each location you can:
+
+1. Click the exact location on the map image.
+2. Enter or load a location name.
+3. Capture and save `pixel_x` and `pixel_y`.
+4. Enter the in-game `X` and `Z` coordinates.
+5. Save notes for later reference.
+
+Saved points are rendered back onto the map immediately so the UI position can be visually verified.
+
+## Advanced Targets
+
+The `Advanced Targets` page controls both the immediate objective package and the larger operational pressure around the map.
+
+### Objective Package
 
 - `SAM Sites`
 - `Artillery Sites`
@@ -42,7 +85,7 @@ The `Advanced Targets` workspace adds more explicit control over what gets gener
 - `Tank Units`
 - `IFV Units`
 
-These values drive the immediate target area package more directly than the older objective profile slider alone.
+These drive the explicit enemy package placed around the selected target.
 
 ### Enemy Resistance Toggles
 
@@ -53,7 +96,7 @@ These values drive the immediate target area package more directly than the olde
 - `Helicopter Patrols`
 - `Fixed-Wing Patrols`
 
-These control which types of resistance are eligible to appear in the generated mission.
+These determine which categories of resistance are eligible to appear.
 
 ### Patrol and Pressure Controls
 
@@ -63,94 +106,63 @@ These control which types of resistance are eligible to appear in the generated 
 - `Locale Patrol Groups`
 - `Objective Patrol Groups`
 - `Helicopter Patrol Count`
+- `Helicopter Patrol Radius`
 - `Fixed-Wing Patrol Count`
+- `Fixed-Wing Patrol Radius`
 - `Randomization`
 
-These settings shape how active the overall theater feels, including the front line, local area defense, and pressure around the selected objective.
+These settings shape how active the theater feels and how far enemy air patrols operate from the target area.
 
-## Campaign State and Persistence
+## Mission Generation Model
 
-The generator now maintains a persistent campaign-state file:
+The exporter currently builds a mission out of:
+
+- baseline defenders at owned locations
+- explicit objective defense units
+- local patrol vehicles
+- objective-area patrol vehicles
+- front-line skirmish groups
+- front-line convoy groups
+- airborne enemy helicopter patrols
+- airborne enemy fixed-wing patrols
+- objective factory targets
+- mission briefing and primary objective records
+
+Ownership is represented in-game through faction-controlled capturable airbases and placed ground units near those locations.
+
+## Air Patrol Behavior
+
+Enemy air patrols now export as actual `aircraft` entries rather than vehicle stand-ins.
+
+Current behavior:
+
+- helicopters spawn airborne around the objective at a configurable helo patrol radius
+- fixed-wing aircraft spawn airborne farther out at a configurable fixed-wing patrol radius
+- both patrol radii are drawn as overlays on the map
+
+This is intended to make the target area feel like it is being actively screened instead of having aircraft spawn directly on top of the objective.
+
+## Persistence
+
+Persistent campaign data is stored in:
 
 - `data/campaign_state.json`
 
-This state currently tracks:
+It currently tracks:
 
 - campaign name
 - selected map
 - saved parameters
-- current faction logistics
+- faction logistics and supplies
 - location ownership
 - current objective metadata
-- saved order of battle records for generated units
-- exported mission count and timestamps
+- generated order of battle
+- mission export count
+- timestamps for export and resolution state
 
-Campaign resolution updates are also written back into this file so later exports can continue from the saved state instead of always starting from scratch.
+Location authoring data is stored in:
 
-## What Gets Generated
-
-The current exporter can generate:
-
-- owned-location baseline defenders
-- objective-area defense packages
-- front-line skirmish/action groups
-- front-line patrol groups
-- front-line convoy groups
-- local patrol groups near owned locations
-- objective-area patrol groups
-- helicopter patrol threats
-- fixed-wing patrol threats
-- objective factory-building targets
-- legacy objective markers / position-trigger style briefing support
-
-Ownership is still represented in-game primarily through placed units and capturable airbase state, which fits the current Nuclear Option mission model well.
-
-## UI Notes
-
-- The main campaign map supports both bottom and top horizontal scrolling.
-- The header now includes `src/images/nuclear_option.jpg` as a visual hero panel.
-- The app auto-loads the catalog shortly after startup, but `Reload Catalog` remains available if you want to force a fresh scan.
-
-## Main Workflow
-
-### Campaign Setup
-
-Use the main view to set:
-
-- map
-- starting airfield
-- friendly and enemy faction
-- starting rank
-- starting cash
-- target / objective
-- ownership for each configured location
-- faction logistics and reserves
-
-From there, export a campaign package or jump to `Advanced Targets` for more detailed setup.
-
-### Configure Locations
-
-Use `Configure Locations` to build or refine the location catalog:
-
-1. Click the exact point on the map image.
-2. Enter the location name.
-3. Enter the in-game `X` coordinate.
-4. Enter the in-game `Z` coordinate.
-5. Add notes if useful.
-6. Save the location to CSV.
-
-Saved locations are rendered back onto the config map so placement can be visually verified.
-
-### Advanced Targets
-
-Use `Advanced Targets` when you want to tune:
-
-- the exact composition of the target package
-- which enemy threat types are active
-- how dense patrols and convoys should be
-- how much randomness should be injected into generated placement
-
-These settings persist into campaign state and are used on the next export.
+- `data/heartland_pixel_locations.csv`
 
 ## Export Output
 
@@ -160,45 +172,43 @@ Exports currently write:
 - `exports/<Campaign Name>/<Campaign Name>/meta.json`
 - `exports/<Campaign Name>/<Campaign Name>/<Campaign Name>.json`
 
-The exporter also attempts to copy the generated mission folder into:
+The exporter also attempts to install the generated mission into:
 
 - `%USERPROFILE%\\AppData\\LocalLow\\Shockfront\\NuclearOption\\Missions`
-
-when that live missions path is available.
 
 ## Important Files
 
 - [package.json](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/package.json)
-  Electron app entry and scripts.
+  Project scripts and Electron dependency setup.
 
 - [src/main.js](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/src/main.js)
-  Electron main process and IPC handlers.
+  Electron main process and IPC wiring.
 
 - [src/preload.js](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/src/preload.js)
-  Renderer bridge for catalog loading, export, and persistence calls.
+  Renderer bridge for catalog, persistence, and export operations.
 
 - [src/lib/catalog.js](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/src/lib/catalog.js)
-  Catalog building, CSV persistence, campaign-state persistence, and mission export logic.
+  Catalog scanning, CSV persistence, campaign-state persistence, and mission export logic.
 
 - [src/renderer/index.html](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/src/renderer/index.html)
-  Main renderer layout for campaign setup, location config, and advanced targeting.
+  Main UI layout.
 
 - [src/renderer/app.js](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/src/renderer/app.js)
-  Renderer logic, map rendering, persistence, and generation setup.
+  Renderer-side state, map rendering, location config, advanced targeting, and export payload setup.
 
 - [src/renderer/styles.css](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/src/renderer/styles.css)
   Desktop UI styling.
 
 - [src/images/nuclear_option.jpg](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/src/images/nuclear_option.jpg)
-  Header hero artwork used in the UI.
+  Hero artwork used in the header.
 
 - [data/heartland_pixel_locations.csv](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/data/heartland_pixel_locations.csv)
-  Current source of truth for configured Heartland map locations.
+  Authored map anchor and in-game coordinate source of truth for Heartland.
 
 - [data/campaign_state.json](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/data/campaign_state.json)
-  Persistent campaign-state save used between exports.
+  Persistent campaign save data.
 
-## CSV Format
+## CSV Fields
 
 `data/heartland_pixel_locations.csv` currently uses:
 
@@ -213,7 +223,7 @@ when that live missions path is available.
 - `initial_owner`
 - `notes`
 
-`pixel_x` and `pixel_y` come from clicked image positions.
+`pixel_x` and `pixel_y` come from clicks on the UI map image.
 
 `game_world_x` and `game_world_z` come from the in-game mission editor.
 
@@ -224,33 +234,29 @@ npm install
 npm start
 ```
 
-The app will attempt to auto-load the catalog and saved campaign state after startup.
-
-If needed, use `Reload Catalog` to force a refresh.
-
 ## Default Paths
 
 - Install path:
   `C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option`
 
-- Missions path:
+- Live missions path:
   `%USERPROFILE%\AppData\LocalLow\Shockfront\NuclearOption\Missions`
 
 - Temp missions path:
   `%USERPROFILE%\AppData\LocalLow\Shockfront\NuclearOption\TempMissions`
 
-## Current Limitations
+## Current Scope and Limitations
 
-- `Heartland` is still the main fully-authored click-to-configure map workflow.
-- Persistent state exists, but post-mission damage, attrition, repair, and replenishment logic are still early-stage.
-- Air patrol generation is newer and needs more mission-side testing than the ground package does.
-- Factory-building generation currently focuses on target-site creation rather than a full economy model.
-- The app is building a campaign start-state and continuity layer, not yet a complete strategic campaign engine.
+- `Heartland` is the main fully-authored map workflow today.
+- This project currently builds the campaign opening state and continuity data, not a full strategic campaign engine.
+- Persistent resolution logic exists, but attrition, repairs, replenishment, and ORBAT evolution are still early-stage.
+- Air patrol generation is working, but continued live-mission tuning is still useful.
+- Airbase export is functional for current campaign generation, but not all deeper mission-editor authoring data is yet modeled.
 
-## Next Logical Steps
+## Near-Term Direction
 
-- Continue validating advanced patrol and air-threat generation in live missions.
-- Expand per-location threat overrides beyond the theater-wide advanced settings.
-- Grow persistent ORBAT handling into damaged / destroyed / repaired unit state.
-- Improve turn-resolution logic around repairs, replenishment, and ownership changes.
-- Extend the same authoring workflow to additional supported maps.
+- continue improving persistent ORBAT and post-mission resolution
+- increase per-location control over threat composition
+- refine objective completion logic to include more target classes
+- improve front-line behavior and convoy/patrol movement over time
+- extend the authored workflow to additional supported maps
