@@ -189,7 +189,9 @@ const els = {
   advancedLocalePatrolGroups: document.getElementById("advanced-locale-patrol-groups"),
   advancedObjectivePatrolGroups: document.getElementById("advanced-objective-patrol-groups"),
   advancedHelicopterPatrolCount: document.getElementById("advanced-helicopter-patrol-count"),
+  advancedHelicopterPatrolRadius: document.getElementById("advanced-helicopter-patrol-radius"),
   advancedFixedWingPatrolCount: document.getElementById("advanced-fixed-wing-patrol-count"),
+  advancedFixedWingPatrolRadius: document.getElementById("advanced-fixed-wing-patrol-radius"),
   advancedRandomness: document.getElementById("advanced-randomness"),
   advancedRandomnessValue: document.getElementById("advanced-randomness-value"),
   configView: document.getElementById("config-view"),
@@ -283,7 +285,9 @@ function getAdvancedThreatSettings() {
       localePatrolGroups: clampNumber(els.advancedLocalePatrolGroups?.value, 0, 12, 4),
       objectivePatrolGroups: clampNumber(els.advancedObjectivePatrolGroups?.value, 0, 8, 3),
       helicopterPatrols: clampNumber(els.advancedHelicopterPatrolCount?.value, 0, 8, 2),
+      helicopterPatrolRadius: clampNumber(els.advancedHelicopterPatrolRadius?.value, 250, 6000, 900),
       fixedWingPatrols: clampNumber(els.advancedFixedWingPatrolCount?.value, 0, 8, 2),
+      fixedWingPatrolRadius: clampNumber(els.advancedFixedWingPatrolRadius?.value, 500, 12000, 2600),
       randomnessPercent: clampNumber(els.advancedRandomness?.value, 0, 100, 35)
     }
   };
@@ -312,7 +316,9 @@ function applyAdvancedThreatSettings(settings = {}) {
     els.advancedLocalePatrolGroups.value = clampNumber(patrolPlan.localePatrolGroups, 0, 12, 4);
     els.advancedObjectivePatrolGroups.value = clampNumber(patrolPlan.objectivePatrolGroups, 0, 8, 3);
     els.advancedHelicopterPatrolCount.value = clampNumber(patrolPlan.helicopterPatrols, 0, 8, 2);
+    els.advancedHelicopterPatrolRadius.value = clampNumber(patrolPlan.helicopterPatrolRadius, 250, 6000, 900);
     els.advancedFixedWingPatrolCount.value = clampNumber(patrolPlan.fixedWingPatrols, 0, 8, 2);
+    els.advancedFixedWingPatrolRadius.value = clampNumber(patrolPlan.fixedWingPatrolRadius, 500, 12000, 2600);
     els.advancedRandomness.value = clampNumber(patrolPlan.randomnessPercent, 0, 100, 35);
   }
 
@@ -435,11 +441,107 @@ function resolveGameLocation(map, selectedValue) {
   return {
     id: location.id,
     name: location.name,
+    pixelX: location.pixelX,
+    pixelY: location.pixelY,
     x: location.gameWorldX,
     y: location.gameWorldY ?? 0,
     z: location.gameWorldZ,
     owner: location.initialOwner
   };
+}
+
+function estimateMetersPerPixel(map) {
+  const calibratedLocations = getOperationalLocations(map).filter((location) => {
+    return (
+      Number.isFinite(Number(location.pixelX)) &&
+      Number.isFinite(Number(location.pixelY)) &&
+      Number.isFinite(Number(location.gameWorldX)) &&
+      Number.isFinite(Number(location.gameWorldZ))
+    );
+  });
+
+  if (calibratedLocations.length < 2) {
+    return null;
+  }
+
+  const samples = [];
+  for (let leftIndex = 0; leftIndex < calibratedLocations.length - 1; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < calibratedLocations.length; rightIndex += 1) {
+      const left = calibratedLocations[leftIndex];
+      const right = calibratedLocations[rightIndex];
+      const dxPixels = Number(left.pixelX) - Number(right.pixelX);
+      const dyPixels = Number(left.pixelY) - Number(right.pixelY);
+      const pixelDistance = Math.sqrt(dxPixels * dxPixels + dyPixels * dyPixels);
+      const dxWorld = Number(left.gameWorldX) - Number(right.gameWorldX);
+      const dzWorld = Number(left.gameWorldZ) - Number(right.gameWorldZ);
+      const worldDistance = Math.sqrt(dxWorld * dxWorld + dzWorld * dzWorld);
+
+      if (pixelDistance < 25 || worldDistance <= 0) {
+        continue;
+      }
+
+      samples.push(worldDistance / pixelDistance);
+    }
+  }
+
+  if (samples.length === 0) {
+    return null;
+  }
+
+  const sorted = samples.sort((left, right) => left - right);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+function appendPatrolRadiusOverlays(layer, map, objectiveLocation, settings) {
+  if (!layer || !map || !objectiveLocation) {
+    return;
+  }
+
+  if (!Number.isFinite(Number(objectiveLocation.pixelX)) || !Number.isFinite(Number(objectiveLocation.pixelY))) {
+    return;
+  }
+
+  const metersPerPixel = estimateMetersPerPixel(map);
+  if (!Number.isFinite(metersPerPixel) || metersPerPixel <= 0) {
+    return;
+  }
+
+  const overlays = [
+    {
+      enabled: Boolean(settings?.operationalResistance?.helicopters) && Number(settings?.patrolPlan?.helicopterPatrols || 0) > 0,
+      radiusMeters: Number(settings?.patrolPlan?.helicopterPatrolRadius || 0),
+      className: "campaign-radius-overlay campaign-radius-overlay--helo",
+      label: `Helo ${Math.round(Number(settings?.patrolPlan?.helicopterPatrolRadius || 0))}m`
+    },
+    {
+      enabled: Boolean(settings?.operationalResistance?.fixedWingPatrols) && Number(settings?.patrolPlan?.fixedWingPatrols || 0) > 0,
+      radiusMeters: Number(settings?.patrolPlan?.fixedWingPatrolRadius || 0),
+      className: "campaign-radius-overlay campaign-radius-overlay--fixed",
+      label: `Fixed ${Math.round(Number(settings?.patrolPlan?.fixedWingPatrolRadius || 0))}m`
+    }
+  ];
+
+  overlays.forEach((overlay) => {
+    if (!overlay.enabled || !Number.isFinite(overlay.radiusMeters) || overlay.radiusMeters <= 0) {
+      return;
+    }
+
+    const radiusPixels = overlay.radiusMeters / metersPerPixel;
+    const diameterPixels = radiusPixels * 2;
+    const widthPercent = (diameterPixels / map.pixelSize.width) * 100;
+    const heightPercent = (diameterPixels / map.pixelSize.height) * 100;
+    const leftPercent = ((Number(objectiveLocation.pixelX) - radiusPixels) / map.pixelSize.width) * 100;
+    const topPercent = ((Number(objectiveLocation.pixelY) - radiusPixels) / map.pixelSize.height) * 100;
+
+    const ring = document.createElement("div");
+    ring.className = overlay.className;
+    ring.style.left = `${leftPercent}%`;
+    ring.style.top = `${topPercent}%`;
+    ring.style.width = `${widthPercent}%`;
+    ring.style.height = `${heightPercent}%`;
+    ring.innerHTML = `<span class="campaign-radius-overlay__label">${overlay.label}</span>`;
+    layer.appendChild(ring);
+  });
 }
 
 function upsertConfiguredLocationInState(row) {
@@ -1225,7 +1327,10 @@ function renderCampaignMarkers() {
   applyCampaignFrame();
   const startingAirfield = resolveGameLocation(map, els.airfieldSelect.value);
   const objectiveLocation = resolveGameLocation(map, els.objectiveTarget.value);
+  const settings = getAdvancedThreatSettings();
   els.campaignMarkerLayer.innerHTML = "";
+
+  appendPatrolRadiusOverlays(els.campaignMarkerLayer, map, objectiveLocation, settings);
 
   for (const location of getOperationalLocations(map)) {
     if (location.pixelX == null || location.pixelY == null) {
@@ -1281,7 +1386,7 @@ function renderAdvancedSummary() {
   setText(els.advancedSummaryPackage, String(packageTotal));
   setText(
     els.advancedSummaryThreats,
-    `${enabledThreats.join(", ") || "none"} | axes ${settings.patrolPlan.frontlinePairs} | patrols ${settings.patrolPlan.frontlinePatrolGroups} | convoys ${settings.patrolPlan.convoyGroups} | randomness ${settings.patrolPlan.randomnessPercent}%`
+    `${enabledThreats.join(", ") || "none"} | axes ${settings.patrolPlan.frontlinePairs} | patrols ${settings.patrolPlan.frontlinePatrolGroups} | convoys ${settings.patrolPlan.convoyGroups} | helo radius ${settings.patrolPlan.helicopterPatrolRadius}m | fixed radius ${settings.patrolPlan.fixedWingPatrolRadius}m | randomness ${settings.patrolPlan.randomnessPercent}%`
   );
 }
 
@@ -1295,7 +1400,10 @@ function renderAdvancedMarkers() {
   applyAdvancedFrame();
   const startingAirfield = resolveGameLocation(map, els.airfieldSelect.value);
   const objectiveLocation = resolveGameLocation(map, els.objectiveTarget.value);
+  const settings = getAdvancedThreatSettings();
   els.advancedMarkerLayer.innerHTML = "";
+
+  appendPatrolRadiusOverlays(els.advancedMarkerLayer, map, objectiveLocation, settings);
 
   for (const location of getOperationalLocations(map)) {
     if (location.pixelX == null || location.pixelY == null) {
@@ -2084,9 +2192,10 @@ function buildObjectiveAirPatrolAircraft(objectiveLocation, settings) {
   const fixedWingEnabled = Boolean(settings.operationalResistance.fixedWingPatrols);
 
   if (helosEnabled) {
+    const helicopterRadiusBase = Number(settings.patrolPlan.helicopterPatrolRadius || 900);
     for (let index = 0; index < settings.patrolPlan.helicopterPatrols; index += 1) {
       const angle = index * 120 + 35;
-      const radius = 550 + (index % 2) * 120;
+      const radius = helicopterRadiusBase + (index % 2) * 140;
       const radians = (angle * Math.PI) / 180;
       const spawn = applyRandomness(
         Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius,
@@ -2113,10 +2222,11 @@ function buildObjectiveAirPatrolAircraft(objectiveLocation, settings) {
   }
 
   if (fixedWingEnabled) {
+    const fixedWingRadiusBase = Number(settings.patrolPlan.fixedWingPatrolRadius || 2600);
     const fixedWingTypes = ["SmallFighter1", "Multirole1"];
     for (let index = 0; index < settings.patrolPlan.fixedWingPatrols; index += 1) {
       const angle = index * 95 + 20;
-      const radius = 1400 + (index % 3) * 260;
+      const radius = fixedWingRadiusBase + (index % 3) * 320;
       const radians = (angle * Math.PI) / 180;
       const spawn = applyRandomness(
         Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius,
@@ -2661,7 +2771,9 @@ function bindEvents() {
     els.advancedLocalePatrolGroups,
     els.advancedObjectivePatrolGroups,
     els.advancedHelicopterPatrolCount,
+    els.advancedHelicopterPatrolRadius,
     els.advancedFixedWingPatrolCount,
+    els.advancedFixedWingPatrolRadius,
     els.advancedRandomness
   ].forEach((element) => {
     const eventName = element.type === "range" ? "input" : "change";
