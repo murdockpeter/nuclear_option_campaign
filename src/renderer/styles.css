@@ -39,10 +39,7 @@ textarea {
 }
 
 .topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 24px;
+  display: block;
   margin-bottom: 18px;
 }
 
@@ -60,10 +57,82 @@ textarea {
   letter-spacing: 0.05em;
 }
 
+.topbar__hero {
+  position: relative;
+  width: 100%;
+  min-height: 196px;
+  border: 1px solid #31404b;
+  border-radius: 16px;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, #102028 0%, #13232c 48%, #17303a 68%, #1b3c46 100%);
+  box-shadow: var(--shadow);
+}
+
+.topbar__hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(7, 17, 21, 0) 0%,
+      rgba(7, 17, 21, 0) 24%,
+      rgba(12, 28, 34, 0.18) 34%,
+      rgba(13, 31, 38, 0.84) 56%,
+      rgba(10, 23, 29, 0.96) 100%
+    ),
+    linear-gradient(90deg, rgba(102, 208, 203, 0.08) 28%, rgba(102, 208, 203, 0) 74%);
+  pointer-events: none;
+}
+
+.topbar__hero-image {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: auto;
+  max-width: none;
+  height: 100%;
+  object-fit: contain;
+  object-position: left center;
+  filter: saturate(0.96) contrast(1.04);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.topbar__hero-overlay {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px 24px;
+  margin-left: 26%;
+}
+
+.topbar__hero-kicker {
+  max-width: 420px;
+  color: #f2f7fa;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.topbar__hero-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 24px;
+}
+
 .topbar__meta {
   color: var(--muted);
-  max-width: 460px;
   text-align: right;
+  margin-left: auto;
+  max-width: 360px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
 .layout {
@@ -158,6 +227,11 @@ textarea {
   gap: 12px;
 }
 
+.inline-actions {
+  display: flex;
+  gap: 12px;
+}
+
 .toggle-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -171,6 +245,10 @@ textarea {
   border-radius: 8px;
   padding: 10px 12px;
   color: var(--text);
+}
+
+.toggle-grid--stacked {
+  grid-template-columns: 1fr;
 }
 
 .ghost,
@@ -254,6 +332,54 @@ textarea {
   overflow: auto;
 }
 
+.logistics-list {
+  display: grid;
+  gap: 12px;
+}
+
+.logistics-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #2b3943;
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(8, 13, 17, 0.84);
+}
+
+.logistics-card__title {
+  font-weight: 700;
+}
+
+.logistics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.logistics-supplies {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.logistics-supply {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.logistics-supply input {
+  width: 100%;
+  background: #0f171d;
+  color: var(--text);
+  border: 1px solid #344651;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
 .ownership-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 148px;
@@ -318,8 +444,9 @@ textarea {
 
 .workspace-body {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
   gap: 14px;
+  align-content: start;
   padding: 18px;
   background:
     radial-gradient(circle at top right, rgba(102, 208, 203, 0.08), transparent 26%),
@@ -334,6 +461,10 @@ textarea {
   align-content: start;
 }
 
+.workspace-summary-grid--compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .config-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
@@ -342,10 +473,54 @@ textarea {
   background: #09131a;
 }
 
-.campaign-stage {
+.advanced-body {
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: 0;
+  min-height: 620px;
+  background: #09131a;
+}
+
+.advanced-sidebar {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 18px;
+  border-right: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(12, 20, 26, 0.98), rgba(10, 17, 22, 0.98));
+}
+
+.advanced-main {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(191, 216, 47, 0.08), transparent 28%),
+    linear-gradient(180deg, #0a141b, #0e171e);
+}
+
+.advanced-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+
+.advanced-stage {
   position: relative;
   overflow: hidden;
   min-height: 0;
+  background: #07131d;
+  border: 1px solid #2a3943;
+  border-radius: 12px;
+}
+
+.campaign-stage {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  min-height: 0;
+  align-self: start;
   background: #07131d;
   border: 1px solid #2a3943;
   border-radius: 12px;
@@ -360,10 +535,36 @@ textarea {
   z-index: 1;
 }
 
-.campaign-scroll {
+.campaign-top-scroll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  z-index: 3;
+  background: rgba(7, 19, 29, 0.92);
+  border-bottom: 1px solid rgba(42, 57, 67, 0.8);
+}
+
+.campaign-top-scroll__track {
+  height: 1px;
+}
+
+#campaign-scroll {
+  position: absolute;
+  inset: 18px 0 0 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  z-index: 2;
+}
+
+#advanced-scroll {
   position: absolute;
   inset: 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
   z-index: 2;
 }
 
@@ -397,6 +598,30 @@ textarea {
   pointer-events: none;
 }
 
+#advanced-map-image {
+  position: absolute;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+  z-index: 1;
+}
+
+#advanced-marker-layer {
+  position: absolute;
+  z-index: 2;
+}
+
+#advanced-marker-layer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(171, 201, 212, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(171, 201, 212, 0.07) 1px, transparent 1px);
+  background-size: 72px 72px;
+  pointer-events: none;
+}
+
 .config-stage {
   position: relative;
   overflow: hidden;
@@ -416,7 +641,8 @@ textarea {
 .config-scroll {
   position: absolute;
   inset: 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
   z-index: 2;
 }
 
@@ -671,6 +897,10 @@ body.config-mode .panel--controls {
   line-height: 1.5;
 }
 
+.campaign-state-summary {
+  margin-bottom: 14px;
+}
+
 .map-footer {
   display: flex;
   gap: 12px;
@@ -694,6 +924,23 @@ body.config-mode .panel--controls {
 }
 
 @media (max-width: 1280px) {
+  .topbar__hero {
+    min-height: 176px;
+  }
+
+  .topbar__hero-image {
+    width: auto;
+  }
+
+  .topbar__hero-overlay {
+    margin-left: 24%;
+  }
+
+  .topbar__hero-footer {
+    flex-direction: column;
+    align-items: start;
+  }
+
   .layout {
     grid-template-columns: 1fr;
   }
@@ -710,7 +957,15 @@ body.config-mode .panel--controls {
     grid-template-columns: 1fr;
   }
 
+  .advanced-body {
+    grid-template-columns: 1fr;
+  }
+
   .config-stage {
+    min-height: 420px;
+  }
+
+  .advanced-stage {
     min-height: 420px;
   }
 }

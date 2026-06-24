@@ -24,6 +24,7 @@ const DEFAULT_PATHS = {
 
 const CUSTOM_ANCHORS_PATH = path.join(process.cwd(), "data", "map-anchors.json");
 const HEARTLAND_PIXEL_LOCATIONS_PATH = path.join(process.cwd(), "data", "heartland_pixel_locations.csv");
+const CAMPAIGN_STATE_PATH = path.join(process.cwd(), "data", "campaign_state.json");
 const HEARTLAND_LOCATION_HEADERS = [
   "map_key",
   "name",
@@ -241,6 +242,14 @@ function safeExists(targetPath) {
   } catch {
     return false;
   }
+}
+
+function readJsonIfExists(filePath, fallback = null) {
+  if (!safeExists(filePath)) {
+    return fallback;
+  }
+
+  return readJson(filePath);
 }
 
 function readJson(filePath) {
@@ -681,10 +690,17 @@ function exportCampaign(payload) {
   ensureDir(missionFolder);
   const generatedBriefing = buildGeneratedBriefing(payload);
   const primaryObjectiveBundle = buildPrimaryObjective(payload);
-  const legacyFactionObjectives = buildLegacyFactionObjectives(payload);
-  const factions = (payload.initialState?.factions || []).map((faction, index) => ({
+  const factions = (payload.initialState?.factions || []).map((faction) => ({
     ...faction,
-    objectives: index === 0 ? legacyFactionObjectives : Array.isArray(faction.objectives) ? faction.objectives : []
+    supplies: Array.isArray(faction.supplies)
+      ? faction.supplies
+          .filter((supply) => supply?.unitType && supply.unitType !== "Revoker")
+          .map((supply) => ({
+            unitType: supply.unitType,
+            count: Number(supply.count || 0)
+          }))
+      : [],
+    objectives: Array.isArray(faction.objectives) ? faction.objectives : []
   }));
 
   const missionJson = {
@@ -731,7 +747,7 @@ function exportCampaign(payload) {
       windRandomHeading: 0,
       moonPhase: 14
     },
-    aircraft: [],
+    aircraft: payload.initialState?.aircraft || [],
     vehicles: [],
     ships: [],
     buildings: [],
@@ -761,6 +777,7 @@ function exportCampaign(payload) {
   };
 
   missionJson.vehicles = payload.initialState?.ownershipVehicles || [];
+  missionJson.buildings = payload.initialState?.targetBuildings || [];
 
   fs.writeFileSync(
     path.join(missionFolder, `${campaignName}.json`),
@@ -787,6 +804,58 @@ function exportCampaign(payload) {
     }
   }
 
+  const previousState = readJsonIfExists(CAMPAIGN_STATE_PATH, null);
+  const previousMissionCount = Number(previousState?.missionCount || 0);
+  const ownershipVehicles = payload.initialState?.ownershipVehicles || [];
+  const persistedUnits = payload.initialState?.orderOfBattle?.units || previousState?.orderOfBattle?.units || [];
+  const persistedBuildings = payload.initialState?.orderOfBattle?.buildings || previousState?.orderOfBattle?.buildings || [];
+  const campaignState = {
+    ...(previousState || {}),
+    version: 1,
+    campaignName,
+    mapKey: payload.parameters.mapKey,
+    mapLabel: payload.parameters.mapLabel,
+    missionCount: previousMissionCount + 1,
+    lastExportAt: new Date().toISOString(),
+    parameters: payload.parameters,
+    factions: payload.initialState?.factions || [],
+    locations: (payload.initialState?.locations || []).map((location) => ({
+      id: location.id,
+      name: location.name,
+      gameWorldX: location.gameWorldX ?? null,
+      gameWorldY: location.gameWorldY ?? 0,
+      gameWorldZ: location.gameWorldZ ?? null,
+      owner: location.initialOwner || "Neutral",
+      notes: location.notes || ""
+    })),
+    airbases: payload.initialState?.airbases || [],
+    objective: payload.initialState?.objectiveLocation
+      ? {
+          name: payload.initialState.objectiveLocation.name,
+          owner: payload.initialState.objectiveLocation.owner || "Neutral",
+          gameWorldX: payload.initialState.objectiveLocation.gameWorldX ?? null,
+          gameWorldY: payload.initialState.objectiveLocation.gameWorldY ?? 0,
+          gameWorldZ: payload.initialState.objectiveLocation.gameWorldZ ?? null,
+          profile: payload.initialState.objectiveLocation.profile || "mixed",
+          intensity: payload.initialState.objectiveLocation.intensity || "Medium"
+        }
+      : previousState?.objective || null,
+    orderOfBattle: {
+      ...(previousState?.orderOfBattle || {}),
+      units: persistedUnits,
+      buildings: persistedBuildings,
+      staticDefense: ownershipVehicles.filter((vehicle) => {
+        return vehicle.UniqueName?.startsWith("baseline_") || vehicle.UniqueName?.startsWith("objective_");
+      }),
+      frontline: ownershipVehicles.filter((vehicle) => {
+        return vehicle.UniqueName?.startsWith("frontline_action_") || vehicle.UniqueName?.startsWith("frontline_patrol_") || vehicle.UniqueName?.startsWith("frontline_convoy_");
+      })
+    }
+  };
+
+  ensureDir(path.dirname(CAMPAIGN_STATE_PATH));
+  fs.writeFileSync(CAMPAIGN_STATE_PATH, JSON.stringify(campaignState, null, 2));
+
   return {
     ok: true,
     exportRoot,
@@ -794,7 +863,50 @@ function exportCampaign(payload) {
     missionFolder,
     installed,
     installedMissionFolder,
-    installError
+    installError,
+    campaignStatePath: CAMPAIGN_STATE_PATH
+  };
+}
+
+function loadCampaignState() {
+  const state = readJsonIfExists(CAMPAIGN_STATE_PATH, null);
+  return {
+    ok: true,
+    exists: Boolean(state),
+    filePath: CAMPAIGN_STATE_PATH,
+    state
+  };
+}
+
+function saveCampaignState(payload) {
+  if (!payload || !payload.mapKey) {
+    throw new Error("Invalid campaign state payload");
+  }
+
+  const previousState = readJsonIfExists(CAMPAIGN_STATE_PATH, null);
+  const nextState = {
+    ...(previousState || {}),
+    version: 1,
+    ...payload,
+    missionCount: Number(payload.missionCount ?? previousState?.missionCount ?? 0),
+    lastExportAt: payload.lastExportAt ?? previousState?.lastExportAt ?? null,
+    parameters: {
+      ...(previousState?.parameters || {}),
+      ...(payload.parameters || {})
+    },
+    orderOfBattle: {
+      ...(previousState?.orderOfBattle || {}),
+      ...(payload.orderOfBattle || {})
+    }
+  };
+
+  ensureDir(path.dirname(CAMPAIGN_STATE_PATH));
+  fs.writeFileSync(CAMPAIGN_STATE_PATH, JSON.stringify(nextState, null, 2));
+
+  return {
+    ok: true,
+    filePath: CAMPAIGN_STATE_PATH,
+    state: nextState
   };
 }
 
@@ -959,13 +1071,16 @@ function saveLocationOwnership(payload) {
 }
 
 module.exports = {
+  CAMPAIGN_STATE_PATH,
   CUSTOM_ANCHORS_PATH,
   DEFAULT_PATHS,
   HEARTLAND_PIXEL_LOCATIONS_PATH,
   MAP_PRESETS,
   buildCatalog,
   exportCampaign,
+  loadCampaignState,
   saveMapAnchor,
+  saveCampaignState,
   saveLocationOwnership,
   upsertConfiguredLocation
 };

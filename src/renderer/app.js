@@ -1,8 +1,10 @@
 const state = {
   catalog: null,
+  campaignState: null,
   selectedMapKey: "Terrain1",
   activeView: "campaign",
   campaignImageReady: false,
+  advancedImageReady: false,
   configPoint: null,
   configImageReady: false,
   configZoom: 1
@@ -19,6 +21,10 @@ const OBJECTIVE_INTENSITY_LABELS = ["Low", "Medium", "High", "Very High"];
 const OBJECTIVE_FORCE_COUNTS = [4, 8, 12, 18];
 const BASELINE_DEFENDER_COUNT = 3;
 const AUTOLOAD_DELAY_MS = 350;
+const TURN_FUNDS_PER_OWNED_LOCATION = 25000;
+const TURN_SUPPLY_REPLENISH_PER_TYPE = 2;
+const TURN_SUPPLY_CAP_PER_TYPE = 24;
+const TURN_RESERVE_AIRFRAME_REPLENISH = 6;
 const DEFAULT_FACTION_SUPPLIES = [
   { unitType: "COIN", count: 12 },
   { unitType: "trainer", count: 12 },
@@ -29,8 +35,7 @@ const DEFAULT_FACTION_SUPPLIES = [
   { unitType: "SmallFighter1", count: 12 },
   { unitType: "QuadVTOL1", count: 12 },
   { unitType: "FastBomber1", count: 12 },
-  { unitType: "EW1", count: 12 },
-  { unitType: "Revoker", count: 12 }
+  { unitType: "EW1", count: 12 }
 ];
 const LOCATION_EXPORT_NAME_OVERRIDES = {
   Terrain1: {
@@ -43,10 +48,78 @@ const OBJECTIVE_PROFILE_TYPES = {
   artillery: ["Truck2-FT", "LightTruck1_AT", "AFV8_APC"],
   mixed: ["MBT1", "AFV8_IFV", "RadarSAM1", "SPAAG1", "Truck2-FT", "AFV8_APC"]
 };
+const FACTORY_BUILDING_TYPES = ["factory_large", "factory_tall"];
+const FACTORY_PRODUCTION_TYPES = ["COIN", "AttackHelo1", "CAS1", "Multirole1"];
+const AIR_PATROL_TYPES = {
+  helicopters: ["AttackHelo1", "UtilityHelo1"],
+  fixedWing: ["SmallFighter1", "Multirole1", "CAS1"]
+};
+const AIRCRAFT_TEMPLATE_BY_TYPE = {
+  AttackHelo1: {
+    loadout: { weaponSelections: [1, 1, 3, 2] },
+    savedLoadout: {
+      Selected: [
+        { Key: "turret_30mmHE_750" },
+        { Key: "AGM1_quad_internal" },
+        { Key: "AGM_heavyx2" },
+        { Key: "AAM1_single" }
+      ]
+    },
+    livery: 3,
+    liveryType: 0,
+    liveryName: "",
+    fuel: 1,
+    skill: 1,
+    bravery: 0.5,
+    startingSpeed: 0
+  },
+  SmallFighter1: {
+    loadout: { weaponSelections: [1, 2, 1, 14, 2] },
+    savedLoadout: {
+      Selected: [
+        { Key: "gun_20mm_internal_500" },
+        { Key: "AAM2_single_internal" },
+        { Key: "AAM2_single_internal" },
+        { Key: "AShM2_double" },
+        { Key: "AAM1_single" }
+      ]
+    },
+    livery: 0,
+    liveryType: 0,
+    liveryName: "",
+    fuel: 1,
+    skill: 1,
+    bravery: 0.5,
+    startingSpeed: 0
+  },
+  Multirole1: {
+    loadout: { weaponSelections: [1, 1, 1, 12, 10, 1] },
+    savedLoadout: {
+      Selected: [
+        { Key: "autocannon_27mm_internal" },
+        { Key: "AAM2_triple_internal" },
+        { Key: "AAM2_triple_internal" },
+        { Key: "AShM1_single" },
+        { Key: "AShM1_single" },
+        { Key: "TailHook_Multirole1" }
+      ]
+    },
+    livery: 3,
+    liveryType: 0,
+    liveryName: "",
+    fuel: 0.4,
+    skill: 1,
+    bravery: 0.5,
+    startingSpeed: 0
+  }
+};
 
 const els = {
   scanMeta: document.getElementById("scan-meta"),
   catalogStats: document.getElementById("catalog-stats"),
+  campaignStateSummary: document.getElementById("campaign-state-summary"),
+  campaignLogistics: document.getElementById("campaign-logistics"),
+  applyCampaignResolution: document.getElementById("apply-campaign-resolution"),
   ownershipList: document.getElementById("ownership-list"),
   mapSelect: document.getElementById("map-select"),
   airfieldSelect: document.getElementById("airfield-select"),
@@ -56,6 +129,7 @@ const els = {
   objectiveUnitProfile: document.getElementById("objective-unit-profile"),
   objectiveIntensity: document.getElementById("objective-intensity"),
   objectiveIntensityValue: document.getElementById("objective-intensity-value"),
+  openAdvancedTargets: document.getElementById("open-advanced-targets"),
   mapTitle: document.getElementById("map-title"),
   mapSubtitle: document.getElementById("map-subtitle"),
   workspaceMap: document.getElementById("workspace-map"),
@@ -78,13 +152,46 @@ const els = {
   enableShips: document.getElementById("enable-ships"),
   showCampaignView: document.getElementById("show-campaign-view"),
   showConfigView: document.getElementById("show-config-view"),
+  showAdvancedView: document.getElementById("show-advanced-view"),
   campaignView: document.getElementById("campaign-view"),
   campaignStage: document.getElementById("campaign-stage"),
+  campaignTopScroll: document.getElementById("campaign-top-scroll"),
+  campaignTopScrollTrack: document.getElementById("campaign-top-scroll-track"),
   campaignScroll: document.getElementById("campaign-scroll"),
   campaignCanvas: document.getElementById("campaign-canvas"),
   campaignEmpty: document.getElementById("campaign-empty"),
   campaignMapImage: document.getElementById("campaign-map-image"),
   campaignMarkerLayer: document.getElementById("campaign-marker-layer"),
+  advancedView: document.getElementById("advanced-view"),
+  advancedStage: document.getElementById("advanced-stage"),
+  advancedScroll: document.getElementById("advanced-scroll"),
+  advancedCanvas: document.getElementById("advanced-canvas"),
+  advancedEmpty: document.getElementById("advanced-empty"),
+  advancedMapImage: document.getElementById("advanced-map-image"),
+  advancedMarkerLayer: document.getElementById("advanced-marker-layer"),
+  advancedSummaryObjective: document.getElementById("advanced-summary-objective"),
+  advancedSummaryPackage: document.getElementById("advanced-summary-package"),
+  advancedSummaryThreats: document.getElementById("advanced-summary-threats"),
+  advancedObjectiveSamSites: document.getElementById("advanced-objective-sam-sites"),
+  advancedObjectiveArtillerySites: document.getElementById("advanced-objective-artillery-sites"),
+  advancedObjectiveFactoryBuildings: document.getElementById("advanced-objective-factory-buildings"),
+  advancedObjectiveTankUnits: document.getElementById("advanced-objective-tank-units"),
+  advancedObjectiveIfvUnits: document.getElementById("advanced-objective-ifv-units"),
+  advancedResistanceScatteredGround: document.getElementById("advanced-resistance-scattered-ground"),
+  advancedResistanceAaa: document.getElementById("advanced-resistance-aaa"),
+  advancedResistanceShortSam: document.getElementById("advanced-resistance-short-sam"),
+  advancedResistanceMediumSam: document.getElementById("advanced-resistance-medium-sam"),
+  advancedResistanceHelicopters: document.getElementById("advanced-resistance-helicopters"),
+  advancedResistanceFixedWing: document.getElementById("advanced-resistance-fixed-wing"),
+  advancedFrontlinePairs: document.getElementById("advanced-frontline-pairs"),
+  advancedFrontlinePatrolGroups: document.getElementById("advanced-frontline-patrol-groups"),
+  advancedFrontlineConvoyGroups: document.getElementById("advanced-frontline-convoy-groups"),
+  advancedLocalePatrolGroups: document.getElementById("advanced-locale-patrol-groups"),
+  advancedObjectivePatrolGroups: document.getElementById("advanced-objective-patrol-groups"),
+  advancedHelicopterPatrolCount: document.getElementById("advanced-helicopter-patrol-count"),
+  advancedFixedWingPatrolCount: document.getElementById("advanced-fixed-wing-patrol-count"),
+  advancedRandomness: document.getElementById("advanced-randomness"),
+  advancedRandomnessValue: document.getElementById("advanced-randomness-value"),
   configView: document.getElementById("config-view"),
   configStage: document.getElementById("config-stage"),
   configScroll: document.getElementById("config-scroll"),
@@ -127,6 +234,124 @@ function normalizeName(value) {
   return (value || "").trim().toLowerCase();
 }
 
+function cloneSupplies(supplies = DEFAULT_FACTION_SUPPLIES) {
+  return supplies
+    .filter((entry) => entry?.unitType && entry.unitType !== "Revoker")
+    .map((entry) => ({ unitType: entry.unitType, count: Number(entry.count || 0) }));
+}
+
+function cloneWaypoints(waypoints = []) {
+  return waypoints.map((waypoint) => ({
+    position: {
+      x: Number(waypoint.position?.x ?? 0),
+      y: Number(waypoint.position?.y ?? 0),
+      z: Number(waypoint.position?.z ?? 0)
+    },
+    objective: waypoint.objective || "Unit Spawn"
+  }));
+}
+
+function clampNumber(value, min, max, fallback) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.max(min, Math.min(max, numeric));
+}
+
+function getAdvancedThreatSettings() {
+  return {
+    objectivePackage: {
+      samSites: clampNumber(els.advancedObjectiveSamSites?.value, 0, 12, 2),
+      artillerySites: clampNumber(els.advancedObjectiveArtillerySites?.value, 0, 12, 2),
+      factoryBuildings: clampNumber(els.advancedObjectiveFactoryBuildings?.value, 0, 12, 2),
+      tankUnits: clampNumber(els.advancedObjectiveTankUnits?.value, 0, 24, 4),
+      ifvUnits: clampNumber(els.advancedObjectiveIfvUnits?.value, 0, 24, 4)
+    },
+    operationalResistance: {
+      scatteredGroundVehicles: Boolean(els.advancedResistanceScatteredGround?.checked),
+      antiAirArtillery: Boolean(els.advancedResistanceAaa?.checked),
+      shortRangeSam: Boolean(els.advancedResistanceShortSam?.checked),
+      mediumRangeSam: Boolean(els.advancedResistanceMediumSam?.checked),
+      helicopters: Boolean(els.advancedResistanceHelicopters?.checked),
+      fixedWingPatrols: Boolean(els.advancedResistanceFixedWing?.checked)
+    },
+    patrolPlan: {
+      frontlinePairs: clampNumber(els.advancedFrontlinePairs?.value, 0, 8, 4),
+      frontlinePatrolGroups: clampNumber(els.advancedFrontlinePatrolGroups?.value, 0, 8, 4),
+      convoyGroups: clampNumber(els.advancedFrontlineConvoyGroups?.value, 0, 8, 4),
+      localePatrolGroups: clampNumber(els.advancedLocalePatrolGroups?.value, 0, 12, 4),
+      objectivePatrolGroups: clampNumber(els.advancedObjectivePatrolGroups?.value, 0, 8, 3),
+      helicopterPatrols: clampNumber(els.advancedHelicopterPatrolCount?.value, 0, 8, 2),
+      fixedWingPatrols: clampNumber(els.advancedFixedWingPatrolCount?.value, 0, 8, 2),
+      randomnessPercent: clampNumber(els.advancedRandomness?.value, 0, 100, 35)
+    }
+  };
+}
+
+function applyAdvancedThreatSettings(settings = {}) {
+  const objectivePackage = settings.objectivePackage || {};
+  const operationalResistance = settings.operationalResistance || {};
+  const patrolPlan = settings.patrolPlan || {};
+
+  if (els.advancedObjectiveSamSites) {
+    els.advancedObjectiveSamSites.value = clampNumber(objectivePackage.samSites, 0, 12, 2);
+    els.advancedObjectiveArtillerySites.value = clampNumber(objectivePackage.artillerySites, 0, 12, 2);
+    els.advancedObjectiveFactoryBuildings.value = clampNumber(objectivePackage.factoryBuildings, 0, 12, 2);
+    els.advancedObjectiveTankUnits.value = clampNumber(objectivePackage.tankUnits, 0, 24, 4);
+    els.advancedObjectiveIfvUnits.value = clampNumber(objectivePackage.ifvUnits, 0, 24, 4);
+    els.advancedResistanceScatteredGround.checked = operationalResistance.scatteredGroundVehicles ?? true;
+    els.advancedResistanceAaa.checked = operationalResistance.antiAirArtillery ?? true;
+    els.advancedResistanceShortSam.checked = operationalResistance.shortRangeSam ?? true;
+    els.advancedResistanceMediumSam.checked = operationalResistance.mediumRangeSam ?? true;
+    els.advancedResistanceHelicopters.checked = operationalResistance.helicopters ?? true;
+    els.advancedResistanceFixedWing.checked = operationalResistance.fixedWingPatrols ?? true;
+    els.advancedFrontlinePairs.value = clampNumber(patrolPlan.frontlinePairs, 0, 8, 4);
+    els.advancedFrontlinePatrolGroups.value = clampNumber(patrolPlan.frontlinePatrolGroups, 0, 8, 4);
+    els.advancedFrontlineConvoyGroups.value = clampNumber(patrolPlan.convoyGroups, 0, 8, 4);
+    els.advancedLocalePatrolGroups.value = clampNumber(patrolPlan.localePatrolGroups, 0, 12, 4);
+    els.advancedObjectivePatrolGroups.value = clampNumber(patrolPlan.objectivePatrolGroups, 0, 8, 3);
+    els.advancedHelicopterPatrolCount.value = clampNumber(patrolPlan.helicopterPatrols, 0, 8, 2);
+    els.advancedFixedWingPatrolCount.value = clampNumber(patrolPlan.fixedWingPatrols, 0, 8, 2);
+    els.advancedRandomness.value = clampNumber(patrolPlan.randomnessPercent, 0, 100, 35);
+  }
+
+  renderAdvancedRandomnessValue();
+}
+
+function renderAdvancedRandomnessValue() {
+  if (!els.advancedRandomnessValue) {
+    return;
+  }
+  const value = clampNumber(els.advancedRandomness?.value, 0, 100, 35);
+  setText(els.advancedRandomnessValue, `${value}%`);
+}
+
+function getPersistedLocationState(locationName) {
+  return state.campaignState?.locations?.find((entry) => normalizeName(entry.name) === normalizeName(locationName)) || null;
+}
+
+function getPersistedFactionState(factionName) {
+  const existing = state.campaignState?.factions?.find((entry) => entry.factionName === factionName);
+  if (existing) {
+    return {
+      factionName,
+      startingBalance: Number(existing.startingBalance ?? 250000),
+      reserveAirframes: Number(existing.reserveAirframes ?? 72),
+      extraReservesPerPlayer: Number(existing.extraReservesPerPlayer ?? 12),
+      supplies: cloneSupplies(existing.supplies?.length ? existing.supplies : DEFAULT_FACTION_SUPPLIES)
+    };
+  }
+
+  return {
+    factionName,
+    startingBalance: Number(els.startingCash?.value || 250000),
+    reserveAirframes: 72,
+    extraReservesPerPlayer: 12,
+    supplies: cloneSupplies(DEFAULT_FACTION_SUPPLIES)
+  };
+}
+
 function configuredLocationsForMap(mapKey) {
   return (state.catalog?.configuredLocationsByMap?.[mapKey] || []).filter((entry) => {
     return !HIDDEN_LOCATION_NAMES.has(entry.name);
@@ -134,6 +359,11 @@ function configuredLocationsForMap(mapKey) {
 }
 
 function inferDefaultOwner(map, locationName) {
+  const persisted = getPersistedLocationState(locationName);
+  if (persisted?.owner) {
+    return persisted.owner;
+  }
+
   const known = map?.airfields?.find((entry) => {
     return normalizeName(entry.name) === normalizeName(locationName) || normalizeName(entry.id) === normalizeName(locationName);
   });
@@ -157,32 +387,38 @@ function getOperationalLocations(map = mapByKey(state.selectedMapKey)) {
   const configured = configuredLocationsForMap(map.key);
   if (configured.length > 0) {
     return configured
-      .map((entry) => ({
-        id: entry.name,
-        name: entry.name,
-        pixelX: entry.pixelX,
-        pixelY: entry.pixelY,
-        gameWorldX: entry.gameWorldX,
-        gameWorldY: inferDefaultAltitude(map, entry.name),
-        gameWorldZ: entry.gameWorldZ,
-        notes: entry.notes || "",
-        initialOwner: entry.initialOwner || inferDefaultOwner(map, entry.name)
-      }))
+      .map((entry) => {
+        const persisted = getPersistedLocationState(entry.name);
+        return {
+          id: entry.name,
+          name: entry.name,
+          pixelX: entry.pixelX,
+          pixelY: entry.pixelY,
+          gameWorldX: entry.gameWorldX,
+          gameWorldY: inferDefaultAltitude(map, entry.name),
+          gameWorldZ: entry.gameWorldZ,
+          notes: entry.notes || "",
+          initialOwner: persisted?.owner || entry.initialOwner || inferDefaultOwner(map, entry.name)
+        };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   return [...map.airfields]
-    .map((entry) => ({
-      id: entry.id,
-      name: entry.name,
-      pixelX: null,
-      pixelY: null,
-      gameWorldX: entry.x,
-      gameWorldY: entry.y ?? 0,
-      gameWorldZ: entry.z,
-      notes: "",
-      initialOwner: entry.faction || "Neutral"
-    }))
+    .map((entry) => {
+      const persisted = getPersistedLocationState(entry.name);
+      return {
+        id: entry.id,
+        name: entry.name,
+        pixelX: null,
+        pixelY: null,
+        gameWorldX: entry.x,
+        gameWorldY: entry.y ?? 0,
+        gameWorldZ: entry.z,
+        notes: "",
+        initialOwner: persisted?.owner || entry.faction || "Neutral"
+      };
+    })
     .filter((entry) => !HIDDEN_LOCATION_NAMES.has(entry.name))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -239,6 +475,373 @@ function upsertConfiguredLocationInState(row) {
   } else {
     list.push(next);
   }
+}
+
+function buildCampaignStatePayload() {
+  const map = mapByKey(state.selectedMapKey);
+  const locations = getOperationalLocations(map);
+  const missionCount = Number(state.campaignState?.missionCount || 0);
+  const selectedObjective = locations.find((entry) => entry.id === els.objectiveTarget.value || entry.name === els.objectiveTarget.value);
+  const logisticsState = collectCampaignLogisticsState();
+  const advancedThreats = getAdvancedThreatSettings();
+
+  return {
+    version: 1,
+    campaignName: els.campaignName.value.trim() || "Untitled Campaign",
+    mapKey: map?.key || state.selectedMapKey,
+    mapLabel: map?.label || "",
+    missionCount,
+    lastExportAt: state.campaignState?.lastExportAt || null,
+    parameters: {
+      description: els.description.value,
+      mapKey: map?.key || state.selectedMapKey,
+      mapLabel: map?.label || "",
+      startingAirbase: els.airfieldSelect.value,
+      objectiveLocation: els.objectiveTarget.value,
+      objectiveUnitProfile: els.objectiveUnitProfile.value,
+      objectiveIntensity: OBJECTIVE_INTENSITY_LABELS[Number(els.objectiveIntensity.value || 1)] || "Medium",
+      startingRank: Number(els.startingRank.value || 5),
+      startingCash: Number(els.startingCash.value || 250000),
+      allowRespawn: els.allowRespawn.checked,
+      timeOfDay: Number(els.timeOfDay.value || 10),
+      weatherIntensity: Number(els.weatherIntensity.value || 0.2),
+      threatProfile: {
+        samSites: els.enableSam.checked,
+        artillery: els.enableArtillery.checked,
+        factories: els.enableFactories.checked,
+        groundUnits: els.enableGround.checked,
+        ships: els.enableShips.checked
+      },
+      advancedThreats
+    },
+    factions: logisticsState,
+    locations: locations.map((location) => ({
+      id: location.id,
+      name: location.name,
+      gameWorldX: location.gameWorldX ?? null,
+      gameWorldY: location.gameWorldY ?? 0,
+      gameWorldZ: location.gameWorldZ ?? null,
+      owner: location.initialOwner || "Neutral",
+      notes: location.notes || ""
+    })),
+    objective: selectedObjective
+      ? {
+          name: selectedObjective.name,
+          owner: selectedObjective.initialOwner || "Neutral"
+        }
+      : null,
+    orderOfBattle: state.campaignState?.orderOfBattle || { units: [] }
+  };
+}
+
+function classifyVehicleRole(vehicle) {
+  const name = vehicle.UniqueName || "";
+  if (name.startsWith("objective_")) {
+    return "objective-defense";
+  }
+  if (name.startsWith("baseline_")) {
+    return "static-defense";
+  }
+  if (name.startsWith("frontline_action_")) {
+    return "frontline-action";
+  }
+  if (name.startsWith("frontline_patrol_")) {
+    return "frontline-patrol";
+  }
+  if (name.startsWith("frontline_convoy_")) {
+    return "frontline-convoy";
+  }
+  return "general";
+}
+
+function buildPersistentUnitRecords(vehicles) {
+  return (vehicles || []).map((vehicle) => ({
+    unitId: vehicle.UniqueName,
+    type: vehicle.type,
+    faction: vehicle.faction,
+    role: classifyVehicleRole(vehicle),
+    status: "active",
+    holdPosition: vehicle.holdPosition !== false,
+    skill: Number(vehicle.skill ?? 0.7),
+    position: {
+      x: Number(vehicle.globalPosition?.x ?? 0),
+      y: Number(vehicle.globalPosition?.y ?? 0),
+      z: Number(vehicle.globalPosition?.z ?? 0)
+    },
+    rotation: {
+      x: Number(vehicle.rotation?.x ?? 0),
+      y: Number(vehicle.rotation?.y ?? 0),
+      z: Number(vehicle.rotation?.z ?? 0),
+      w: Number(vehicle.rotation?.w ?? 1)
+    },
+    waypoints: cloneWaypoints(vehicle.waypoints || [])
+  }));
+}
+
+function buildVehiclesFromPersistentUnits() {
+  const units = state.campaignState?.orderOfBattle?.units || [];
+  return units
+    .filter((unit) => unit.status !== "destroyed")
+    .map((unit) => ({
+      type: unit.type,
+      faction: unit.faction,
+      UniqueName: unit.unitId,
+      globalPosition: {
+        x: Number(unit.position?.x ?? 0),
+        y: Number(unit.position?.y ?? 0),
+        z: Number(unit.position?.z ?? 0)
+      },
+      rotation: {
+        x: Number(unit.rotation?.x ?? 0),
+        y: Number(unit.rotation?.y ?? 0),
+        z: Number(unit.rotation?.z ?? 0),
+        w: Number(unit.rotation?.w ?? 1)
+      },
+      CaptureStrength: { IsOverride: false, Value: 0 },
+      CaptureDefense: { IsOverride: false, Value: 0 },
+      unitCustomID: "",
+      spawnTiming: "",
+      holdPosition: unit.holdPosition !== false,
+      skill: Number(unit.skill ?? 0.7),
+      waypoints: cloneWaypoints(unit.waypoints || [])
+    }));
+}
+
+function renderCampaignLogistics() {
+  if (!els.campaignLogistics) {
+    return;
+  }
+
+  const factionIds = [els.friendlyFaction.value || "Boscali", els.enemyFaction.value || "Primeva"];
+  els.campaignLogistics.innerHTML = "";
+
+  for (const factionName of factionIds) {
+    const faction = getPersistedFactionState(factionName);
+    const card = document.createElement("div");
+    card.className = "logistics-card";
+    card.innerHTML = `
+      <div class="logistics-card__title">${factionName}</div>
+      <div class="logistics-grid">
+        <label class="field">
+          <span>Funds</span>
+          <input type="number" step="1000" data-faction-funds="${factionName}" value="${faction.startingBalance}" />
+        </label>
+        <label class="field">
+          <span>Reserve Airframes</span>
+          <input type="number" step="1" min="0" data-faction-reserve-airframes="${factionName}" value="${faction.reserveAirframes}" />
+        </label>
+      </div>
+      <div class="logistics-grid">
+        <label class="field">
+          <span>Extra Reserves / Player</span>
+          <input type="number" step="1" min="0" data-faction-extra-reserves="${factionName}" value="${faction.extraReservesPerPlayer}" />
+        </label>
+      </div>
+      <div class="logistics-supplies">
+        ${faction.supplies
+          .map((supply) => `
+            <label class="logistics-supply">
+              <span>${supply.unitType}</span>
+              <input type="number" step="1" min="0" data-faction-supply="${factionName}" data-unit-type="${supply.unitType}" value="${Number(supply.count || 0)}" />
+            </label>
+          `)
+          .join("")}
+      </div>
+    `;
+    els.campaignLogistics.appendChild(card);
+  }
+}
+
+function collectCampaignLogisticsState() {
+  const factionIds = [els.friendlyFaction.value || "Boscali", els.enemyFaction.value || "Primeva"];
+  return factionIds.map((factionName) => {
+    const fallback = getPersistedFactionState(factionName);
+    const funds = els.campaignLogistics?.querySelector(`[data-faction-funds="${factionName}"]`);
+    const reserveAirframes = els.campaignLogistics?.querySelector(`[data-faction-reserve-airframes="${factionName}"]`);
+    const extraReserves = els.campaignLogistics?.querySelector(`[data-faction-extra-reserves="${factionName}"]`);
+    const supplyInputs = Array.from(els.campaignLogistics?.querySelectorAll(`[data-faction-supply="${factionName}"]`) || []);
+    return {
+      factionName,
+      startingBalance: Number(funds?.value ?? fallback.startingBalance ?? 250000),
+      reserveAirframes: Number(reserveAirframes?.value ?? fallback.reserveAirframes ?? 72),
+      extraReservesPerPlayer: Number(extraReserves?.value ?? fallback.extraReservesPerPlayer ?? 12),
+      supplies: (supplyInputs.length ? supplyInputs : fallback.supplies.map((supply) => ({
+        dataset: { unitType: supply.unitType },
+        value: supply.count
+      }))).map((input) => ({
+        unitType: input.dataset.unitType,
+        count: Number(input.value ?? 0)
+      }))
+    };
+  });
+}
+
+async function applyCampaignResolution() {
+  const locations = getOperationalLocations(mapByKey(state.selectedMapKey));
+  const ownedCounts = new Map();
+  for (const location of locations) {
+    const owner = location.initialOwner || "Neutral";
+    ownedCounts.set(owner, (ownedCounts.get(owner) || 0) + 1);
+  }
+
+  const resolvedFactions = collectCampaignLogisticsState().map((faction) => ({
+    ...faction,
+    startingBalance: Number(faction.startingBalance || 0) + (ownedCounts.get(faction.factionName) || 0) * TURN_FUNDS_PER_OWNED_LOCATION,
+    reserveAirframes: Number(faction.reserveAirframes || 0) + TURN_RESERVE_AIRFRAME_REPLENISH,
+    supplies: cloneSupplies(faction.supplies).map((supply) => ({
+      unitType: supply.unitType,
+      count: Math.min(TURN_SUPPLY_CAP_PER_TYPE, Number(supply.count || 0) + TURN_SUPPLY_REPLENISH_PER_TYPE)
+    }))
+  }));
+
+  const result = await persistCampaignState({
+    resolutionCount: Number(state.campaignState?.resolutionCount || 0) + 1,
+    lastResolvedAt: new Date().toISOString(),
+    factions: resolvedFactions
+  });
+
+  if (!result?.ok) {
+    els.output.innerHTML = "<div>Failed to apply campaign resolution.</div>";
+    return;
+  }
+
+  renderCampaignLogistics();
+  renderCampaignStateSummary();
+  updateWorkspaceSummary();
+  renderCampaignMarkers();
+  els.output.innerHTML = `
+    <div>Campaign resolution applied.</div>
+    <div>${result.filePath}</div>
+    <div>Resolutions saved: ${Number(result.state?.resolutionCount || 0)}</div>
+    <div>Automatic income and replenishment applied for one turn.</div>
+  `;
+}
+
+async function persistCampaignState(overrides = {}) {
+  if (!state.catalog) {
+    return null;
+  }
+
+  const payload = {
+    ...buildCampaignStatePayload(),
+    ...overrides
+  };
+
+  if (overrides.parameters) {
+    payload.parameters = {
+      ...buildCampaignStatePayload().parameters,
+      ...overrides.parameters
+    };
+  }
+
+  const result = await window.nuclearOptionApi.saveCampaignState(payload);
+  if (result?.ok) {
+    state.campaignState = result.state;
+  }
+  return result;
+}
+
+function renderCampaignStateSummary() {
+  if (!els.campaignStateSummary) {
+    return;
+  }
+
+  const label = els.campaignStateSummary.querySelector(".workspace-card__label");
+  const text = els.campaignStateSummary.querySelector(".workspace-card__text");
+  if (!state.campaignState) {
+    label.textContent = "Persistent Campaign State";
+    text.textContent = "No campaign state saved yet.";
+    return;
+  }
+
+  label.textContent = "Persistent Campaign State";
+  text.textContent = `${state.campaignState.campaignName || "Campaign"} | ${state.campaignState.mapLabel || state.campaignState.mapKey || "-"} | missions: ${Number(state.campaignState.missionCount || 0)} | resolutions: ${Number(state.campaignState.resolutionCount || 0)}`;
+}
+
+function applyCampaignState() {
+  const saved = state.campaignState;
+  if (!saved || !state.catalog) {
+    renderCampaignStateSummary();
+    return;
+  }
+
+  if (saved.mapKey && state.catalog.maps.some((entry) => entry.key === saved.mapKey)) {
+    state.selectedMapKey = saved.mapKey;
+  }
+
+  if (saved.campaignName) {
+    els.campaignName.value = saved.campaignName;
+  }
+
+  if (saved.parameters?.description) {
+    els.description.value = saved.parameters.description;
+  }
+
+  renderMapOptions();
+  renderFactionOptions();
+  renderLocationOptions();
+  renderObjectiveOptions();
+
+  if (saved.factions?.[0]?.factionName) {
+    els.friendlyFaction.value = saved.factions[0].factionName;
+  }
+  if (saved.factions?.[1]?.factionName) {
+    els.enemyFaction.value = saved.factions[1].factionName;
+  }
+
+  if (saved.parameters?.startingRank != null) {
+    els.startingRank.value = saved.parameters.startingRank;
+  }
+  if (saved.factions?.[0]?.startingBalance != null) {
+    els.startingCash.value = saved.factions[0].startingBalance;
+  } else if (saved.parameters?.startingCash != null) {
+    els.startingCash.value = saved.parameters.startingCash;
+  }
+  if (saved.parameters?.timeOfDay != null) {
+    els.timeOfDay.value = saved.parameters.timeOfDay;
+  }
+  if (saved.parameters?.weatherIntensity != null) {
+    els.weatherIntensity.value = saved.parameters.weatherIntensity;
+  }
+  if (saved.parameters?.allowRespawn != null) {
+    els.allowRespawn.checked = Boolean(saved.parameters.allowRespawn);
+  }
+
+  if (saved.parameters?.threatProfile) {
+    els.enableSam.checked = Boolean(saved.parameters.threatProfile.samSites);
+    els.enableArtillery.checked = Boolean(saved.parameters.threatProfile.artillery);
+    els.enableFactories.checked = Boolean(saved.parameters.threatProfile.factories);
+    els.enableGround.checked = Boolean(saved.parameters.threatProfile.groundUnits);
+    els.enableShips.checked = Boolean(saved.parameters.threatProfile.ships);
+  }
+
+  applyAdvancedThreatSettings(saved.parameters?.advancedThreats || {});
+
+  renderLocationOptions();
+  renderObjectiveOptions();
+
+  if (saved.parameters?.startingAirbase) {
+    els.airfieldSelect.value = saved.parameters.startingAirbase;
+  }
+  if (saved.parameters?.objectiveLocation) {
+    els.objectiveTarget.value = saved.parameters.objectiveLocation;
+  }
+  if (saved.parameters?.objectiveUnitProfile) {
+    els.objectiveUnitProfile.value = saved.parameters.objectiveUnitProfile;
+  }
+  if (saved.parameters?.objectiveIntensity) {
+    const intensityIndex = OBJECTIVE_INTENSITY_LABELS.indexOf(saved.parameters.objectiveIntensity);
+    if (intensityIndex >= 0) {
+      els.objectiveIntensity.value = String(intensityIndex);
+    }
+  }
+
+  renderOwnershipList();
+  renderCampaignLogistics();
+  renderConfigLocationOptions();
+  renderObjectiveIntensityValue();
+  updateWorkspaceSummary();
+  renderCampaignStateSummary();
 }
 
 function updateLocationOwnerInState(mapKey, name, initialOwner) {
@@ -384,7 +987,13 @@ function renderOwnershipList() {
 function updateWorkspaceSummary() {
   const map = mapByKey(state.selectedMapKey);
   if (!map) {
-    setText(els.mapTitle, state.activeView === "campaign" ? "Campaign Workspace" : "Location Config");
+    const emptyTitle =
+      state.activeView === "config"
+        ? "Location Config"
+        : state.activeView === "advanced"
+          ? "Advanced Targets"
+          : "Campaign Workspace";
+    setText(els.mapTitle, emptyTitle);
     setText(
       els.mapSubtitle,
       "Click Reload Catalog after launch to load Heartland and initialize configuration."
@@ -406,12 +1015,20 @@ function updateWorkspaceSummary() {
     neutral: locations.filter((entry) => !entry.initialOwner || entry.initialOwner === "Neutral").length
   };
 
-  setText(els.mapTitle, state.activeView === "campaign" ? map.label : `${map.label} Location Config`);
+  const title =
+    state.activeView === "config"
+      ? `${map.label} Location Config`
+      : state.activeView === "advanced"
+        ? `${map.label} Advanced Targeting`
+        : map.label;
+  setText(els.mapTitle, title);
   setText(
     els.mapSubtitle,
     state.activeView === "campaign"
       ? "Manual ownership setup for a fresh multiplayer campaign start."
-      : "Click a map point, name the location, then enter the in-game X/Z coordinates."
+      : state.activeView === "config"
+        ? "Click a map point, name the location, then enter the in-game X/Z coordinates."
+        : "Dial in the target package, resistance toggles, patrol density, and randomness for this operational area."
   );
   setText(els.workspaceMap, map.label);
   setText(els.workspaceStart, startingAirbase?.name || "-");
@@ -450,6 +1067,15 @@ function getCampaignViewport() {
   return { left: 0, top: 0, width, height };
 }
 
+function getAdvancedViewport() {
+  const naturalWidth = els.advancedMapImage.naturalWidth || 1;
+  const naturalHeight = els.advancedMapImage.naturalHeight || 1;
+  const baseWidth = els.advancedScroll.clientWidth || els.advancedStage.clientWidth || naturalWidth;
+  const width = baseWidth * state.configZoom;
+  const height = width * (naturalHeight / naturalWidth);
+  return { left: 0, top: 0, width, height };
+}
+
 function applyConfigFrame() {
   const viewport = getConfigViewport();
   els.configCanvas.style.width = `${viewport.width}px`;
@@ -466,6 +1092,7 @@ function applyConfigFrame() {
 
 function applyCampaignFrame() {
   const viewport = getCampaignViewport();
+  els.campaignStage.style.height = `${viewport.height + 18}px`;
   els.campaignCanvas.style.width = `${viewport.width}px`;
   els.campaignCanvas.style.height = `${viewport.height}px`;
   els.campaignMapImage.style.left = `${viewport.left}px`;
@@ -476,6 +1103,23 @@ function applyCampaignFrame() {
   els.campaignMarkerLayer.style.top = `${viewport.top}px`;
   els.campaignMarkerLayer.style.width = `${viewport.width}px`;
   els.campaignMarkerLayer.style.height = `${viewport.height}px`;
+  if (els.campaignTopScrollTrack) {
+    els.campaignTopScrollTrack.style.width = `${viewport.width}px`;
+  }
+}
+
+function applyAdvancedFrame() {
+  const viewport = getAdvancedViewport();
+  els.advancedCanvas.style.width = `${viewport.width}px`;
+  els.advancedCanvas.style.height = `${viewport.height}px`;
+  els.advancedMapImage.style.left = `${viewport.left}px`;
+  els.advancedMapImage.style.top = `${viewport.top}px`;
+  els.advancedMapImage.style.width = `${viewport.width}px`;
+  els.advancedMapImage.style.height = `${viewport.height}px`;
+  els.advancedMarkerLayer.style.left = `${viewport.left}px`;
+  els.advancedMarkerLayer.style.top = `${viewport.top}px`;
+  els.advancedMarkerLayer.style.width = `${viewport.width}px`;
+  els.advancedMarkerLayer.style.height = `${viewport.height}px`;
 }
 
 function setConfigPoint(pixelX, pixelY) {
@@ -611,6 +1255,76 @@ function renderCampaignMarkers() {
   }
 }
 
+function renderAdvancedSummary() {
+  if (!els.advancedSummaryObjective) {
+    return;
+  }
+
+  const objectiveLocation = resolveGameLocation(mapByKey(state.selectedMapKey), els.objectiveTarget.value);
+  const settings = getAdvancedThreatSettings();
+  const packageTotal =
+    settings.objectivePackage.samSites +
+    settings.objectivePackage.artillerySites +
+    settings.objectivePackage.factoryBuildings +
+    settings.objectivePackage.tankUnits +
+    settings.objectivePackage.ifvUnits;
+  const enabledThreats = [
+    settings.operationalResistance.scatteredGroundVehicles ? "ground" : null,
+    settings.operationalResistance.antiAirArtillery ? "AAA" : null,
+    settings.operationalResistance.shortRangeSam ? "SR SAM" : null,
+    settings.operationalResistance.mediumRangeSam ? "MR SAM" : null,
+    settings.operationalResistance.helicopters ? "helo patrols" : null,
+    settings.operationalResistance.fixedWingPatrols ? "fixed-wing patrols" : null
+  ].filter(Boolean);
+
+  setText(els.advancedSummaryObjective, objectiveLocation?.name || "-");
+  setText(els.advancedSummaryPackage, String(packageTotal));
+  setText(
+    els.advancedSummaryThreats,
+    `${enabledThreats.join(", ") || "none"} | axes ${settings.patrolPlan.frontlinePairs} | patrols ${settings.patrolPlan.frontlinePatrolGroups} | convoys ${settings.patrolPlan.convoyGroups} | randomness ${settings.patrolPlan.randomnessPercent}%`
+  );
+}
+
+function renderAdvancedMarkers() {
+  const map = mapByKey(state.selectedMapKey);
+  if (!map || !state.advancedImageReady) {
+    els.advancedMarkerLayer.innerHTML = "";
+    return;
+  }
+
+  applyAdvancedFrame();
+  const startingAirfield = resolveGameLocation(map, els.airfieldSelect.value);
+  const objectiveLocation = resolveGameLocation(map, els.objectiveTarget.value);
+  els.advancedMarkerLayer.innerHTML = "";
+
+  for (const location of getOperationalLocations(map)) {
+    if (location.pixelX == null || location.pixelY == null) {
+      continue;
+    }
+
+    const left = (location.pixelX / map.pixelSize.width) * 100;
+    const top = (location.pixelY / map.pixelSize.height) * 100;
+    const marker = document.createElement("div");
+    marker.className = ownershipClassFor(location);
+    marker.style.left = `${left}%`;
+    marker.style.top = `${top}%`;
+    marker.innerHTML = `
+      <div class="campaign-marker__dot"></div>
+      <div class="campaign-marker__label">${location.name}</div>
+    `;
+
+    if (startingAirfield?.name === location.name) {
+      marker.innerHTML += `<div class="campaign-marker__ring"></div>`;
+    }
+
+    if (objectiveLocation?.name === location.name) {
+      marker.innerHTML += `<div class="campaign-marker__objective"></div>`;
+    }
+
+    els.advancedMarkerLayer.appendChild(marker);
+  }
+}
+
 function renderCampaignView() {
   const map = mapByKey(state.selectedMapKey);
   if (!map) {
@@ -636,6 +1350,34 @@ function renderCampaignView() {
   }
 
   renderCampaignMarkers();
+}
+
+function renderAdvancedView() {
+  const map = mapByKey(state.selectedMapKey);
+  renderAdvancedSummary();
+  if (!map) {
+    state.advancedImageReady = false;
+    els.advancedEmpty.textContent = "Click Reload Catalog to load the selected map.";
+    els.advancedEmpty.classList.remove("hidden");
+    els.advancedMapImage.removeAttribute("src");
+    els.advancedMarkerLayer.innerHTML = "";
+    return;
+  }
+
+  const resolvedSrc = resolveRendererAsset(map.imagePath);
+  const sameImage = els.advancedMapImage.src === resolvedSrc;
+
+  if (!sameImage) {
+    state.advancedImageReady = false;
+    els.advancedEmpty.textContent = `Loading ${map.label} map...`;
+    els.advancedEmpty.classList.remove("hidden");
+    els.advancedMapImage.src = resolvedSrc;
+  } else if (els.advancedMapImage.complete && els.advancedMapImage.naturalWidth > 0) {
+    state.advancedImageReady = true;
+    els.advancedEmpty.classList.add("hidden");
+  }
+
+  renderAdvancedMarkers();
 }
 
 function scrollConfigToPixel(pixelX, pixelY) {
@@ -682,18 +1424,43 @@ function renderConfigView() {
 
 function showView(view) {
   state.activeView = view;
-  document.body.classList.toggle("config-mode", view === "config");
+  document.body.classList.toggle("config-mode", view === "config" || view === "advanced");
   els.campaignView.classList.toggle("hidden", view !== "campaign");
   els.configView.classList.toggle("hidden", view !== "config");
+  els.advancedView.classList.toggle("hidden", view !== "advanced");
   els.showCampaignView.className = view === "campaign" ? "secondary" : "ghost";
   els.showConfigView.className = view === "config" ? "secondary" : "ghost";
+  els.showAdvancedView.className = view === "advanced" ? "secondary" : "ghost";
   updateWorkspaceSummary();
   if (view === "config") {
     renderConfigView();
     return;
   }
 
+  if (view === "advanced") {
+    renderAdvancedView();
+    return;
+  }
+
   renderCampaignView();
+}
+
+function syncCampaignTopScrollFromMain() {
+  if (!els.campaignTopScroll || !els.campaignScroll) {
+    return;
+  }
+  if (els.campaignTopScroll.scrollLeft !== els.campaignScroll.scrollLeft) {
+    els.campaignTopScroll.scrollLeft = els.campaignScroll.scrollLeft;
+  }
+}
+
+function syncCampaignMainScrollFromTop() {
+  if (!els.campaignTopScroll || !els.campaignScroll) {
+    return;
+  }
+  if (els.campaignScroll.scrollLeft !== els.campaignTopScroll.scrollLeft) {
+    els.campaignScroll.scrollLeft = els.campaignTopScroll.scrollLeft;
+  }
 }
 
 function sanitizeIdFragment(value) {
@@ -705,6 +1472,23 @@ function sanitizeIdFragment(value) {
 
 function getExportLocationName(mapKey, locationName) {
   return LOCATION_EXPORT_NAME_OVERRIDES[mapKey]?.[locationName] || locationName;
+}
+
+function derivePlayerJoinAllowance(startingBalance) {
+  const numericBalance = Number(startingBalance || 0);
+  if (!Number.isFinite(numericBalance) || numericBalance <= 0) {
+    return 250;
+  }
+
+  if (numericBalance >= 1000000) {
+    return Math.max(250, Math.round(numericBalance / 1000000));
+  }
+
+  if (numericBalance >= 1000) {
+    return Math.max(250, Math.round(numericBalance / 1000));
+  }
+
+  return Math.max(250, Math.round(numericBalance));
 }
 
 function createDefenderVehicle(type, faction, name, x, y, z, angleDegrees, options = {}) {
@@ -739,7 +1523,66 @@ function distanceBetweenLocations(a, b) {
   return Math.sqrt(dx * dx + dz * dz);
 }
 
-function buildFrontlinePairs(locations) {
+function randomJitter(scale) {
+  return (Math.random() * 2 - 1) * scale;
+}
+
+function applyRandomness(x, z, settings, baseScale = 100) {
+  const intensity = Number(settings?.patrolPlan?.randomnessPercent || 0) / 100;
+  const spread = baseScale * intensity;
+  return {
+    x: x + randomJitter(spread),
+    z: z + randomJitter(spread)
+  };
+}
+
+function createFactoryBuilding(type, faction, name, x, y, z, angleDegrees, productionType) {
+  const radians = (angleDegrees * Math.PI) / 180;
+  const half = radians / 2;
+  return {
+    type,
+    faction,
+    UniqueName: name,
+    globalPosition: { x, y, z },
+    rotation: { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) },
+    CaptureStrength: { IsOverride: false, Value: 0 },
+    CaptureDefense: { IsOverride: false, Value: 50 },
+    unitCustomID: "",
+    spawnTiming: "",
+    capturable: false,
+    Airbase: "",
+    factoryOptions: {
+      productionType,
+      productionTime: 675
+    },
+    placementOffset: 0
+  };
+}
+
+function buildResistanceGroundTypes(settings, options = {}) {
+  const includeArtillery = options.includeArtillery ?? true;
+  const types = [];
+
+  if (els.enableGround.checked && settings.operationalResistance.scatteredGroundVehicles) {
+    types.push("AFV8_IFV", "AFV8_APC");
+  }
+  if (settings.operationalResistance.antiAirArtillery) {
+    types.push("SPAAG1");
+  }
+  if (els.enableSam.checked && settings.operationalResistance.shortRangeSam) {
+    types.push("SAMTrailer1");
+  }
+  if (els.enableSam.checked && settings.operationalResistance.mediumRangeSam) {
+    types.push("RadarSAM1");
+  }
+  if (els.enableArtillery.checked && includeArtillery) {
+    types.push("Truck2-FT");
+  }
+
+  return types.length ? types : ["AFV8_APC"];
+}
+
+function buildFrontlinePairs(locations, maxPairs = 4) {
   const friendlyOwned = locations.filter((location) => location.initialOwner === els.friendlyFaction.value);
   const enemyOwned = locations.filter((location) => location.initialOwner === els.enemyFaction.value);
   const pairMap = new Map();
@@ -775,19 +1618,19 @@ function buildFrontlinePairs(locations) {
 
   return Array.from(pairMap.values())
     .sort((left, right) => left.distance - right.distance)
-    .slice(0, 4);
+    .slice(0, Math.max(0, maxPairs));
 }
 
-function buildFrontlineMobileVehicles(locations) {
+function buildFrontlineMobileVehicles(locations, settings) {
   if (!els.enableGround.checked) {
     return [];
   }
 
-  const pairs = buildFrontlinePairs(locations);
+  const pairs = buildFrontlinePairs(locations, settings.patrolPlan.frontlinePairs);
   let index = 0;
   const vehicles = [];
-  const patrolTypes = ["AFV8_IFV", "AFV8_APC", "SPAAG1"];
-  const convoyTypes = ["Truck2-FT", "LightTruck1_AT", "AFV8_IFV", "AFV8_APC"];
+  const patrolTypes = buildResistanceGroundTypes(settings, { includeArtillery: false });
+  const convoyTypes = [...buildResistanceGroundTypes(settings, { includeArtillery: true }), "LightTruck1_AT"];
 
   function addGroup(origin, opposing, pairIndex, prefix, types, laneOffset) {
     const dx = Number(opposing.gameWorldX) - Number(origin.gameWorldX);
@@ -797,15 +1640,18 @@ function buildFrontlineMobileVehicles(locations) {
     const nz = dz / length;
     const px = -nz;
     const pz = nx;
-    const startX = Number(origin.gameWorldX) + nx * 220 + px * laneOffset;
+    const startPoint = applyRandomness(Number(origin.gameWorldX) + nx * 220 + px * laneOffset, Number(origin.gameWorldZ) + nz * 220 + pz * laneOffset, settings, 140);
+    const startX = startPoint.x;
     const startY = Number(origin.gameWorldY ?? 0);
-    const startZ = Number(origin.gameWorldZ) + nz * 220 + pz * laneOffset;
-    const forwardX = Number(origin.gameWorldX) + dx * 0.38 + px * laneOffset;
+    const startZ = startPoint.z;
+    const forwardPoint = applyRandomness(Number(origin.gameWorldX) + dx * 0.38 + px * laneOffset, Number(origin.gameWorldZ) + dz * 0.38 + pz * laneOffset, settings, 180);
+    const forwardX = forwardPoint.x;
     const forwardY = startY * 0.62 + Number(opposing.gameWorldY ?? 0) * 0.38;
-    const forwardZ = Number(origin.gameWorldZ) + dz * 0.38 + pz * laneOffset;
-    const flankX = Number(origin.gameWorldX) + dx * 0.32 + px * (laneOffset + 220);
+    const forwardZ = forwardPoint.z;
+    const flankPoint = applyRandomness(Number(origin.gameWorldX) + dx * 0.32 + px * (laneOffset + 220), Number(origin.gameWorldZ) + dz * 0.32 + pz * (laneOffset + 220), settings, 200);
+    const flankX = flankPoint.x;
     const flankY = startY * 0.68 + Number(opposing.gameWorldY ?? 0) * 0.32;
-    const flankZ = Number(origin.gameWorldZ) + dz * 0.32 + pz * (laneOffset + 220);
+    const flankZ = flankPoint.z;
     const heading = (Math.atan2(dz, dx) * 180) / Math.PI;
 
     for (let vehicleIndex = 0; vehicleIndex < types.length; vehicleIndex += 1) {
@@ -837,27 +1683,29 @@ function buildFrontlineMobileVehicles(locations) {
   }
 
   pairs.forEach((pair, pairIndex) => {
-    addGroup(pair.a, pair.b, pairIndex, "frontline_patrol", patrolTypes, 120);
-    addGroup(pair.b, pair.a, pairIndex, "frontline_patrol", patrolTypes, -120);
-    addGroup(pair.a, pair.b, pairIndex, "frontline_convoy", convoyTypes, 200);
-    addGroup(pair.b, pair.a, pairIndex, "frontline_convoy", convoyTypes, -200);
+    if (pairIndex < settings.patrolPlan.frontlinePatrolGroups) {
+      addGroup(pair.a, pair.b, pairIndex, "frontline_patrol", patrolTypes, 120);
+      addGroup(pair.b, pair.a, pairIndex, "frontline_patrol", patrolTypes, -120);
+    }
+    if (pairIndex < settings.patrolPlan.convoyGroups) {
+      addGroup(pair.a, pair.b, pairIndex, "frontline_convoy", convoyTypes, 200);
+      addGroup(pair.b, pair.a, pairIndex, "frontline_convoy", convoyTypes, -200);
+    }
   });
 
   return vehicles;
 }
 
-function buildFrontlineActionVehicles(locations) {
+function buildFrontlineActionVehicles(locations, settings) {
   if (!els.enableGround.checked) {
     return [];
   }
 
-  const pairs = buildFrontlinePairs(locations);
+  const pairs = buildFrontlinePairs(locations, settings.patrolPlan.frontlinePairs);
   let index = 0;
   const vehicles = [];
-  const friendlyTypes = ["AFV8_IFV", "AFV8_APC", "MBT1"];
-  const enemyTypes = ["AFV8_IFV", "SPAAG1", "MBT1"];
-  const supportType = els.enableArtillery.checked ? "Truck2-FT" : "AFV8_APC";
-  const samType = els.enableSam.checked ? "RadarSAM1" : "SPAAG1";
+  const friendlyTypes = buildResistanceGroundTypes(settings, { includeArtillery: true }).concat("MBT1");
+  const enemyTypes = buildResistanceGroundTypes(settings, { includeArtillery: true }).concat("MBT1");
 
   pairs.forEach((pair, pairIndex) => {
     const dx = Number(pair.b.gameWorldX) - Number(pair.a.gameWorldX);
@@ -870,12 +1718,15 @@ function buildFrontlineActionVehicles(locations) {
     const midpointX = Number(pair.a.gameWorldX) + dx * 0.5;
     const midpointY = Number(pair.a.gameWorldY ?? 0) * 0.5 + Number(pair.b.gameWorldY ?? 0) * 0.5;
     const midpointZ = Number(pair.a.gameWorldZ) + dz * 0.5;
-    const friendlyAnchorX = midpointX - nx * 360 + px * 150;
-    const friendlyAnchorZ = midpointZ - nz * 360 + pz * 150;
-    const enemyAnchorX = midpointX + nx * 360 - px * 150;
-    const enemyAnchorZ = midpointZ + nz * 360 - pz * 150;
-    const contactX = midpointX + px * ((pairIndex % 2 === 0 ? 1 : -1) * 90);
-    const contactZ = midpointZ + pz * ((pairIndex % 2 === 0 ? 1 : -1) * 90);
+    const friendlyAnchor = applyRandomness(midpointX - nx * 360 + px * 150, midpointZ - nz * 360 + pz * 150, settings, 180);
+    const enemyAnchor = applyRandomness(midpointX + nx * 360 - px * 150, midpointZ + nz * 360 - pz * 150, settings, 180);
+    const contact = applyRandomness(midpointX + px * ((pairIndex % 2 === 0 ? 1 : -1) * 90), midpointZ + pz * ((pairIndex % 2 === 0 ? 1 : -1) * 90), settings, 120);
+    const friendlyAnchorX = friendlyAnchor.x;
+    const friendlyAnchorZ = friendlyAnchor.z;
+    const enemyAnchorX = enemyAnchor.x;
+    const enemyAnchorZ = enemyAnchor.z;
+    const contactX = contact.x;
+    const contactZ = contact.z;
     const friendlyHeading = (Math.atan2(dz, dx) * 180) / Math.PI;
     const enemyHeading = friendlyHeading + 180;
 
@@ -908,28 +1759,30 @@ function buildFrontlineActionVehicles(locations) {
       });
     }
 
-    addSkirmishElement(pair.a.initialOwner, [...friendlyTypes, supportType], friendlyAnchorX, friendlyAnchorZ, friendlyHeading, 1);
-    addSkirmishElement(pair.b.initialOwner, [...enemyTypes, samType], enemyAnchorX, enemyAnchorZ, enemyHeading, -1);
+    addSkirmishElement(pair.a.initialOwner, friendlyTypes.slice(0, 4), friendlyAnchorX, friendlyAnchorZ, friendlyHeading, 1);
+    addSkirmishElement(pair.b.initialOwner, enemyTypes.slice(0, 4), enemyAnchorX, enemyAnchorZ, enemyHeading, -1);
   });
 
   return vehicles;
 }
 
-function buildBaselineDefenseVehicles(locations) {
+function buildBaselineDefenseVehicles(locations, settings) {
   let index = 0;
-  const baselineTypes = ["AFV8_IFV", "AFV8_APC", "SPAAG1"];
+  const baselineTypes = buildResistanceGroundTypes(settings, { includeArtillery: true });
+  const unitCount = Math.max(2, Math.min(6, baselineTypes.length));
 
   return locations
     .filter((location) => location.initialOwner && location.initialOwner !== "Neutral")
     .flatMap((location) => {
-      return Array.from({ length: BASELINE_DEFENDER_COUNT }, (_, vehicleIndex) => {
+      return Array.from({ length: unitCount }, (_, vehicleIndex) => {
         index += 1;
-        const angle = vehicleIndex * (360 / BASELINE_DEFENDER_COUNT);
+        const angle = vehicleIndex * (360 / unitCount);
         const radius = 140 + vehicleIndex * 35;
         const radians = (angle * Math.PI) / 180;
-        const x = Number(location.gameWorldX) + Math.cos(radians) * radius;
+        const randomized = applyRandomness(Number(location.gameWorldX) + Math.cos(radians) * radius, Number(location.gameWorldZ) + Math.sin(radians) * radius, settings, 90);
+        const x = randomized.x;
         const y = Number(location.gameWorldY ?? 0);
-        const z = Number(location.gameWorldZ) + Math.sin(radians) * radius;
+        const z = randomized.z;
         const type = baselineTypes[vehicleIndex % baselineTypes.length];
         return createDefenderVehicle(
           type,
@@ -944,25 +1797,50 @@ function buildBaselineDefenseVehicles(locations) {
     });
 }
 
-function buildObjectiveDefenseVehicles(objectiveLocation) {
+function buildObjectiveDefenseVehicles(objectiveLocation, settings) {
   if (!objectiveLocation || objectiveLocation.initialOwner === "Neutral") {
     return [];
   }
 
-  const profileKey = els.objectiveUnitProfile.value || "mixed";
-  const profileTypes = OBJECTIVE_PROFILE_TYPES[profileKey] || OBJECTIVE_PROFILE_TYPES.mixed;
-  const intensityLevel = Number(els.objectiveIntensity.value || 1);
-  const unitCount = OBJECTIVE_FORCE_COUNTS[intensityLevel] || OBJECTIVE_FORCE_COUNTS[1];
+  const objectiveTypes = [];
+  if (els.enableSam.checked) {
+    for (let index = 0; index < settings.objectivePackage.samSites; index += 1) {
+      objectiveTypes.push(index % 2 === 0 ? "RadarSAM1" : "SAMTrailer1");
+    }
+  }
+  if (els.enableArtillery.checked) {
+    for (let index = 0; index < settings.objectivePackage.artillerySites; index += 1) {
+      objectiveTypes.push("Truck2-FT");
+    }
+  }
+  if (els.enableGround.checked) {
+    for (let index = 0; index < settings.objectivePackage.tankUnits; index += 1) {
+      objectiveTypes.push("MBT1");
+    }
+    for (let index = 0; index < settings.objectivePackage.ifvUnits; index += 1) {
+      objectiveTypes.push("AFV8_IFV");
+    }
+  }
 
-  return Array.from({ length: unitCount }, (_, index) => {
+  if (!objectiveTypes.length) {
+    const profileKey = els.objectiveUnitProfile.value || "mixed";
+    const profileTypes = OBJECTIVE_PROFILE_TYPES[profileKey] || OBJECTIVE_PROFILE_TYPES.mixed;
+    const intensityLevel = Number(els.objectiveIntensity.value || 1);
+    const unitCount = OBJECTIVE_FORCE_COUNTS[intensityLevel] || OBJECTIVE_FORCE_COUNTS[1];
+    for (let index = 0; index < unitCount; index += 1) {
+      objectiveTypes.push(profileTypes[index % profileTypes.length]);
+    }
+  }
+
+  return objectiveTypes.map((type, index) => {
     const ringIndex = Math.floor(index / 6);
     const angle = (index % 6) * 60 + ringIndex * 15;
     const radius = 220 + ringIndex * 90;
     const radians = (angle * Math.PI) / 180;
-    const x = Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius;
+    const randomized = applyRandomness(Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius, Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius, settings, 140);
+    const x = randomized.x;
     const y = Number(objectiveLocation.gameWorldY ?? 0);
-    const z = Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius;
-    const type = profileTypes[index % profileTypes.length];
+    const z = randomized.z;
     return createDefenderVehicle(
       type,
       objectiveLocation.initialOwner,
@@ -973,6 +1851,314 @@ function buildObjectiveDefenseVehicles(objectiveLocation) {
       angle + 180
     );
   });
+}
+
+function buildObjectiveFactoryBuildings(objectiveLocation, settings) {
+  if (!objectiveLocation || objectiveLocation.initialOwner === "Neutral" || !els.enableFactories.checked) {
+    return [];
+  }
+
+  return Array.from({ length: settings.objectivePackage.factoryBuildings }, (_, index) => {
+    const angle = index * (360 / Math.max(settings.objectivePackage.factoryBuildings, 1));
+    const radius = 340 + (index % 2) * 90;
+    const radians = (angle * Math.PI) / 180;
+    const randomized = applyRandomness(Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius, Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius, settings, 120);
+    const type = FACTORY_BUILDING_TYPES[index % FACTORY_BUILDING_TYPES.length];
+    const productionType = FACTORY_PRODUCTION_TYPES[index % FACTORY_PRODUCTION_TYPES.length];
+    return createFactoryBuilding(
+      type,
+      objectiveLocation.initialOwner,
+      `objective_factory_${sanitizeIdFragment(objectiveLocation.name)}_${index + 1}`,
+      randomized.x,
+      Number(objectiveLocation.gameWorldY ?? 0),
+      randomized.z,
+      angle + 90,
+      productionType
+    );
+  });
+}
+
+function buildLocalPatrolVehicles(locations, settings) {
+  if (!els.enableGround.checked || settings.patrolPlan.localePatrolGroups <= 0) {
+    return [];
+  }
+
+  const ownedLocations = locations.filter((location) => location.initialOwner && location.initialOwner !== "Neutral");
+  const patrolTypes = buildResistanceGroundTypes(settings, { includeArtillery: false });
+  const vehicles = [];
+
+  for (let groupIndex = 0; groupIndex < settings.patrolPlan.localePatrolGroups && ownedLocations.length > 0; groupIndex += 1) {
+    const location = ownedLocations[groupIndex % ownedLocations.length];
+    for (let unitIndex = 0; unitIndex < Math.min(2, patrolTypes.length); unitIndex += 1) {
+      const angle = 90 * unitIndex + groupIndex * 37;
+      const radius = 180 + unitIndex * 55;
+      const radians = (angle * Math.PI) / 180;
+      const spawn = applyRandomness(Number(location.gameWorldX) + Math.cos(radians) * radius, Number(location.gameWorldZ) + Math.sin(radians) * radius, settings, 90);
+      const waypointA = applyRandomness(Number(location.gameWorldX) + Math.cos(radians + 0.8) * (radius + 110), Number(location.gameWorldZ) + Math.sin(radians + 0.8) * (radius + 110), settings, 90);
+      const waypointB = applyRandomness(Number(location.gameWorldX) + Math.cos(radians + 1.7) * (radius + 70), Number(location.gameWorldZ) + Math.sin(radians + 1.7) * (radius + 70), settings, 90);
+      vehicles.push(
+        createDefenderVehicle(
+          patrolTypes[(groupIndex + unitIndex) % patrolTypes.length],
+          location.initialOwner,
+          `locale_patrol_${sanitizeIdFragment(location.name)}_${groupIndex + 1}_${unitIndex + 1}`,
+          spawn.x,
+          Number(location.gameWorldY ?? 0),
+          spawn.z,
+          angle + 90,
+          {
+            holdPosition: true,
+            waypoints: [
+              createWaypoint(spawn.x, Number(location.gameWorldY ?? 0), spawn.z, "Unit Spawn"),
+              createWaypoint(waypointA.x, Number(location.gameWorldY ?? 0), waypointA.z, `${location.name} Patrol A`),
+              createWaypoint(waypointB.x, Number(location.gameWorldY ?? 0), waypointB.z, `${location.name} Patrol B`),
+              createWaypoint(spawn.x, Number(location.gameWorldY ?? 0), spawn.z, location.name)
+            ]
+          }
+        )
+      );
+    }
+  }
+
+  return vehicles;
+}
+
+function buildObjectivePatrolVehicles(objectiveLocation, settings) {
+  if (!objectiveLocation || objectiveLocation.initialOwner === "Neutral" || !els.enableGround.checked || settings.patrolPlan.objectivePatrolGroups <= 0) {
+    return [];
+  }
+
+  const patrolTypes = buildResistanceGroundTypes(settings, { includeArtillery: false });
+  const vehicles = [];
+
+  for (let groupIndex = 0; groupIndex < settings.patrolPlan.objectivePatrolGroups; groupIndex += 1) {
+    const angle = groupIndex * 68;
+    const radius = 420 + (groupIndex % 3) * 120;
+    const radians = (angle * Math.PI) / 180;
+    const spawn = applyRandomness(Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius, Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius, settings, 120);
+    const attack = applyRandomness(Number(objectiveLocation.gameWorldX) + Math.cos(radians + 0.6) * (radius - 90), Number(objectiveLocation.gameWorldZ) + Math.sin(radians + 0.6) * (radius - 90), settings, 120);
+    vehicles.push(
+      createDefenderVehicle(
+        patrolTypes[groupIndex % patrolTypes.length],
+        objectiveLocation.initialOwner,
+        `objective_patrol_${sanitizeIdFragment(objectiveLocation.name)}_${groupIndex + 1}`,
+        spawn.x,
+        Number(objectiveLocation.gameWorldY ?? 0),
+        spawn.z,
+        angle + 135,
+        {
+          holdPosition: true,
+          waypoints: [
+            createWaypoint(spawn.x, Number(objectiveLocation.gameWorldY ?? 0), spawn.z, "Unit Spawn"),
+            createWaypoint(attack.x, Number(objectiveLocation.gameWorldY ?? 0), attack.z, `${objectiveLocation.name} Outer Patrol`),
+            createWaypoint(Number(objectiveLocation.gameWorldX), Number(objectiveLocation.gameWorldY ?? 0), Number(objectiveLocation.gameWorldZ), `${objectiveLocation.name} Defend`),
+            createWaypoint(spawn.x, Number(objectiveLocation.gameWorldY ?? 0), spawn.z, objectiveLocation.name)
+          ]
+        }
+      )
+    );
+  }
+
+  return vehicles;
+}
+
+function buildObjectiveAirPatrolVehicles(objectiveLocation, settings) {
+  if (!objectiveLocation || objectiveLocation.initialOwner === "Neutral") {
+    return [];
+  }
+
+  const vehicles = [];
+  const altitudeBase = Number(objectiveLocation.gameWorldY ?? 0) + 350;
+
+  if (settings.operationalResistance.helicopters) {
+    for (let index = 0; index < settings.patrolPlan.helicopterPatrols; index += 1) {
+      const angle = index * 120;
+      const radius = 700 + index * 120;
+      const radians = (angle * Math.PI) / 180;
+      const spawn = applyRandomness(Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius, Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius, settings, 120);
+      vehicles.push(
+        createDefenderVehicle(
+          AIR_PATROL_TYPES.helicopters[index % AIR_PATROL_TYPES.helicopters.length],
+          objectiveLocation.initialOwner,
+          `objective_helo_patrol_${sanitizeIdFragment(objectiveLocation.name)}_${index + 1}`,
+          spawn.x,
+          altitudeBase + 120 + index * 20,
+          spawn.z,
+          angle + 45,
+          {
+            holdPosition: false,
+            waypoints: [
+              createWaypoint(spawn.x, altitudeBase + 120 + index * 20, spawn.z, "Unit Spawn"),
+              createWaypoint(Number(objectiveLocation.gameWorldX) + 450, altitudeBase + 160, Number(objectiveLocation.gameWorldZ) + 450, `${objectiveLocation.name} Helo Patrol`),
+              createWaypoint(Number(objectiveLocation.gameWorldX) - 450, altitudeBase + 160, Number(objectiveLocation.gameWorldZ) - 350, `${objectiveLocation.name} Helo Patrol`),
+              createWaypoint(spawn.x, altitudeBase + 120 + index * 20, spawn.z, objectiveLocation.name)
+            ]
+          }
+        )
+      );
+    }
+  }
+
+  if (settings.operationalResistance.fixedWingPatrols) {
+    for (let index = 0; index < settings.patrolPlan.fixedWingPatrols; index += 1) {
+      const angle = index * 60;
+      const radius = 1800 + index * 240;
+      const radians = (angle * Math.PI) / 180;
+      const spawn = applyRandomness(Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius, Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius, settings, 180);
+      vehicles.push(
+        createDefenderVehicle(
+          AIR_PATROL_TYPES.fixedWing[index % AIR_PATROL_TYPES.fixedWing.length],
+          objectiveLocation.initialOwner,
+          `objective_fixed_patrol_${sanitizeIdFragment(objectiveLocation.name)}_${index + 1}`,
+          spawn.x,
+          altitudeBase + 850 + index * 120,
+          spawn.z,
+          angle + 20,
+          {
+            holdPosition: false,
+            waypoints: [
+              createWaypoint(spawn.x, altitudeBase + 850 + index * 120, spawn.z, "Unit Spawn"),
+              createWaypoint(Number(objectiveLocation.gameWorldX) + 1200, altitudeBase + 900, Number(objectiveLocation.gameWorldZ) + 800, `${objectiveLocation.name} CAP`),
+              createWaypoint(Number(objectiveLocation.gameWorldX) - 1400, altitudeBase + 950, Number(objectiveLocation.gameWorldZ) + 200, `${objectiveLocation.name} CAP`),
+              createWaypoint(Number(objectiveLocation.gameWorldX) + 300, altitudeBase + 900, Number(objectiveLocation.gameWorldZ) - 1500, `${objectiveLocation.name} CAP`)
+            ]
+          }
+        )
+      );
+    }
+  }
+
+  return vehicles;
+}
+
+function createAircraftUnit(type, faction, uniqueName, x, y, z, headingDegrees, options = {}) {
+  const template =
+    AIRCRAFT_TEMPLATE_BY_TYPE[type] ||
+    AIRCRAFT_TEMPLATE_BY_TYPE.SmallFighter1;
+  const radians = (headingDegrees * Math.PI) / 180;
+  const altitude = Number(options.altitude ?? y);
+  const startingSpeed =
+    Number.isFinite(Number(options.startingSpeed))
+      ? Number(options.startingSpeed)
+      : template.startingSpeed;
+
+  return {
+    type,
+    faction,
+    UniqueName: uniqueName,
+    globalPosition: {
+      x: Number(x),
+      y: altitude,
+      z: Number(z)
+    },
+    rotation: {
+      x: 0,
+      y: Math.sin(radians / 2),
+      z: 0,
+      w: Math.cos(radians / 2)
+    },
+    CaptureStrength: { IsOverride: false, Value: 0 },
+    CaptureDefense: { IsOverride: false, Value: 0 },
+    unitCustomID: "",
+    spawnTiming: "",
+    playerControlled: false,
+    playerControlledPriority: 0,
+    loadout: JSON.parse(JSON.stringify(template.loadout)),
+    savedLoadout: JSON.parse(JSON.stringify(template.savedLoadout)),
+    livery: template.livery,
+    liveryType: template.liveryType,
+    liveryName: template.liveryName,
+    fuel: template.fuel,
+    skill: template.skill,
+    bravery: template.bravery,
+    startingSpeed
+  };
+}
+
+function buildObjectiveAirPatrolAircraft(objectiveLocation, settings) {
+  if (!objectiveLocation || objectiveLocation.initialOwner === "Neutral") {
+    return [];
+  }
+
+  const aircraft = [];
+  const helosEnabled = Boolean(settings.operationalResistance.helicopters);
+  const fixedWingEnabled = Boolean(settings.operationalResistance.fixedWingPatrols);
+
+  if (helosEnabled) {
+    for (let index = 0; index < settings.patrolPlan.helicopterPatrols; index += 1) {
+      const angle = index * 120 + 35;
+      const radius = 550 + (index % 2) * 120;
+      const radians = (angle * Math.PI) / 180;
+      const spawn = applyRandomness(
+        Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius,
+        Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius,
+        settings,
+        80
+      );
+      aircraft.push(
+        createAircraftUnit(
+          "AttackHelo1",
+          objectiveLocation.initialOwner,
+          `objective_air_helo_${sanitizeIdFragment(objectiveLocation.name)}_${index + 1}`,
+          spawn.x,
+          Number(objectiveLocation.gameWorldY ?? 0),
+          spawn.z,
+          angle + 180,
+          {
+            altitude: Number(objectiveLocation.gameWorldY ?? 0) + 450 + index * 40,
+            startingSpeed: 55
+          }
+        )
+      );
+    }
+  }
+
+  if (fixedWingEnabled) {
+    const fixedWingTypes = ["SmallFighter1", "Multirole1"];
+    for (let index = 0; index < settings.patrolPlan.fixedWingPatrols; index += 1) {
+      const angle = index * 95 + 20;
+      const radius = 1400 + (index % 3) * 260;
+      const radians = (angle * Math.PI) / 180;
+      const spawn = applyRandomness(
+        Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius,
+        Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius,
+        settings,
+        160
+      );
+      aircraft.push(
+        createAircraftUnit(
+          fixedWingTypes[index % fixedWingTypes.length],
+          objectiveLocation.initialOwner,
+          `objective_air_fixed_${sanitizeIdFragment(objectiveLocation.name)}_${index + 1}`,
+          spawn.x,
+          Number(objectiveLocation.gameWorldY ?? 0),
+          spawn.z,
+          angle + 180,
+          {
+            altitude: Number(objectiveLocation.gameWorldY ?? 0) + 1600 + index * 120,
+            startingSpeed: 180
+          }
+        )
+      );
+    }
+  }
+
+  return aircraft;
+}
+
+function buildCampaignVehicles(locations, objectiveLocation, settings) {
+  const persistedVehicles = buildVehiclesFromPersistentUnits();
+  if (persistedVehicles.length > 0) {
+    return persistedVehicles;
+  }
+
+  return [
+    ...buildBaselineDefenseVehicles(locations, settings),
+    ...buildObjectiveDefenseVehicles(objectiveLocation, settings),
+    ...buildLocalPatrolVehicles(locations, settings),
+    ...buildObjectivePatrolVehicles(objectiveLocation, settings),
+    ...buildFrontlineActionVehicles(locations, settings),
+    ...buildFrontlineMobileVehicles(locations, settings)
+  ];
 }
 
 function buildExportAirbases(map, locations) {
@@ -1023,22 +2209,33 @@ function getCampaignPayload() {
     throw new Error("Objective location must have in-game coordinates saved.");
   }
 
+  const advancedThreats = getAdvancedThreatSettings();
+  const factionResources = collectCampaignLogisticsState();
+  const ownershipVehicles = buildCampaignVehicles(locations, objectiveLocation, advancedThreats);
+  const objectiveAircraft = buildObjectiveAirPatrolAircraft(objectiveLocation, advancedThreats);
+  const targetBuildings = buildObjectiveFactoryBuildings(objectiveLocation, advancedThreats);
+  const friendlyResources = factionResources.find((entry) => entry.factionName === els.friendlyFaction.value) || getPersistedFactionState(els.friendlyFaction.value);
+  const enemyResources = factionResources.find((entry) => entry.factionName === els.enemyFaction.value) || getPersistedFactionState(els.enemyFaction.value);
+  const friendlyStartingBalance = Number(friendlyResources.startingBalance ?? els.startingCash.value ?? 250000);
+  const enemyStartingBalance = Number(enemyResources.startingBalance ?? els.startingCash.value ?? 250000);
+  const playerJoinAllowance = derivePlayerJoinAllowance(friendlyStartingBalance);
+
   const factions = [
     {
       factionName: els.friendlyFaction.value,
       preventJoin: false,
       preventDonation: false,
-      supplies: DEFAULT_FACTION_SUPPLIES,
-      startingBalance: Number(els.startingCash.value || 250000),
-      playerJoinAllowance: 20,
+      supplies: cloneSupplies(friendlyResources.supplies),
+      startingBalance: friendlyStartingBalance,
+      playerJoinAllowance,
       playerTaxRate: 0.2,
       regularIncome: 5,
       excessFundsDistributePercent: 0.25,
       killReward: 1,
       startingWarheads: 0,
       reserveWarheads: 0,
-      reserveAirframes: 72,
-      extraReservesPerPlayer: 12,
+      reserveAirframes: Number(friendlyResources.reserveAirframes ?? 72),
+      extraReservesPerPlayer: Number(friendlyResources.extraReservesPerPlayer ?? 12),
       AIAircraftLimit: 6,
       reduceAIPerFriendlyPlayer: 1,
       addAIPerEnemyPlayer: 1,
@@ -1057,19 +2254,19 @@ function getCampaignPayload() {
     },
     {
       factionName: els.enemyFaction.value,
-      preventJoin: false,
+      preventJoin: true,
       preventDonation: false,
-      supplies: DEFAULT_FACTION_SUPPLIES,
-      startingBalance: Number(els.startingCash.value || 250000),
-      playerJoinAllowance: 0,
+      supplies: cloneSupplies(enemyResources.supplies),
+      startingBalance: enemyStartingBalance,
+      playerJoinAllowance,
       playerTaxRate: 0,
       regularIncome: 5,
       excessFundsDistributePercent: 0.25,
       killReward: 1,
       startingWarheads: 0,
       reserveWarheads: 0,
-      reserveAirframes: 72,
-      extraReservesPerPlayer: 12,
+      reserveAirframes: Number(enemyResources.reserveAirframes ?? 72),
+      extraReservesPerPlayer: Number(enemyResources.extraReservesPerPlayer ?? 12),
       AIAircraftLimit: 6,
       reduceAIPerFriendlyPlayer: 1,
       addAIPerEnemyPlayer: 1,
@@ -1110,7 +2307,8 @@ function getCampaignPayload() {
         factories: els.enableFactories.checked,
         groundUnits: els.enableGround.checked,
         ships: els.enableShips.checked
-      }
+      },
+      advancedThreats
     },
     initialState: {
       mapKey: map.key,
@@ -1128,12 +2326,13 @@ function getCampaignPayload() {
       factions,
       locations,
       airbases: buildExportAirbases(map, locations),
-      ownershipVehicles: [
-        ...buildBaselineDefenseVehicles(locations),
-        ...buildObjectiveDefenseVehicles(objectiveLocation),
-        ...buildFrontlineActionVehicles(locations),
-        ...buildFrontlineMobileVehicles(locations)
-      ]
+      aircraft: objectiveAircraft,
+      targetBuildings,
+      ownershipVehicles,
+      orderOfBattle: {
+        units: buildPersistentUnitRecords(ownershipVehicles),
+        buildings: targetBuildings
+      }
     }
   };
 }
@@ -1146,6 +2345,17 @@ async function exportCampaign() {
       return;
     }
 
+    const savedState = await window.nuclearOptionApi.loadCampaignState();
+    if (savedState?.ok && savedState.exists) {
+      state.campaignState = savedState.state;
+    } else {
+      await persistCampaignState({
+        missionCount: Number(state.campaignState?.missionCount || 0) + 1,
+        lastExportAt: new Date().toISOString()
+      });
+    }
+    renderCampaignStateSummary();
+
     const installLine = result.installed
       ? `<div>Installed to game missions: ${result.installedMissionFolder}</div>`
       : `<div>Install to game missions failed: ${result.installError || "unknown error"}</div>`;
@@ -1154,6 +2364,7 @@ async function exportCampaign() {
       <div>Campaign exported.</div>
       <div>${result.campaignPath}</div>
       <div>${result.missionFolder}</div>
+      <div>Campaign state: ${result.campaignStatePath || "not saved"}</div>
       ${installLine}
     `;
   } catch (error) {
@@ -1194,10 +2405,14 @@ async function saveConfiguredLocation() {
   renderConfigLocationOptions();
   updateWorkspaceSummary();
   renderCampaignMarkers();
+  renderAdvancedSummary();
+  renderAdvancedMarkers();
   els.configExistingLocation.value = result.row.name;
   loadConfigFormFromLocation(result.row.name);
   renderConfigMarkers();
   scrollConfigToPixel(result.row.pixelX, result.row.pixelY);
+  await persistCampaignState();
+  renderCampaignStateSummary();
 }
 
 async function saveOwnershipChange(name, initialOwner) {
@@ -1218,11 +2433,15 @@ async function saveOwnershipChange(name, initialOwner) {
   renderOwnershipList();
   updateWorkspaceSummary();
   renderCampaignMarkers();
+  renderAdvancedSummary();
+  renderAdvancedMarkers();
   els.output.innerHTML = `
     <div>Ownership updated.</div>
     <div>${result.row.name} -> ${result.row.initialOwner}</div>
     <div>${result.filePath}</div>
   `;
+  await persistCampaignState();
+  renderCampaignStateSummary();
 }
 
 function onConfigMapClick(event) {
@@ -1267,10 +2486,17 @@ function bindEvents() {
     renderLocationOptions();
     renderObjectiveOptions();
     renderOwnershipList();
+    renderCampaignLogistics();
     renderConfigLocationOptions();
     updateWorkspaceSummary();
+    renderAdvancedSummary();
     if (state.activeView === "config") {
       renderConfigView();
+      return;
+    }
+
+    if (state.activeView === "advanced") {
+      renderAdvancedView();
       return;
     }
 
@@ -1280,28 +2506,43 @@ function bindEvents() {
   els.airfieldSelect.addEventListener("change", () => {
     updateWorkspaceSummary();
     renderCampaignMarkers();
+    renderAdvancedMarkers();
   });
   els.objectiveTarget.addEventListener("change", () => {
     updateWorkspaceSummary();
     renderCampaignMarkers();
+    renderAdvancedSummary();
+    renderAdvancedMarkers();
   });
-  els.objectiveUnitProfile.addEventListener("change", updateWorkspaceSummary);
+  els.objectiveUnitProfile.addEventListener("change", () => {
+    updateWorkspaceSummary();
+    renderAdvancedSummary();
+  });
   els.objectiveIntensity.addEventListener("input", () => {
     renderObjectiveIntensityValue();
     updateWorkspaceSummary();
+    renderAdvancedSummary();
   });
   els.friendlyFaction.addEventListener("change", () => {
     renderLocationOptions();
     renderObjectiveOptions();
     renderOwnershipList();
+    renderCampaignLogistics();
     updateWorkspaceSummary();
     renderCampaignMarkers();
+    renderAdvancedSummary();
+    renderAdvancedMarkers();
+    persistCampaignState().then(renderCampaignStateSummary);
   });
   els.enemyFaction.addEventListener("change", () => {
     renderObjectiveOptions();
     renderOwnershipList();
+    renderCampaignLogistics();
     updateWorkspaceSummary();
     renderCampaignMarkers();
+    renderAdvancedSummary();
+    renderAdvancedMarkers();
+    persistCampaignState().then(renderCampaignStateSummary);
   });
 
   els.ownershipList.addEventListener("change", (event) => {
@@ -1315,15 +2556,30 @@ function bindEvents() {
 
   els.showCampaignView.addEventListener("click", () => showView("campaign"));
   els.showConfigView.addEventListener("click", () => showView("config"));
+  els.showAdvancedView.addEventListener("click", () => showView("advanced"));
+  els.openAdvancedTargets.addEventListener("click", () => showView("advanced"));
+  els.campaignScroll.addEventListener("scroll", syncCampaignTopScrollFromMain);
+  els.campaignTopScroll.addEventListener("scroll", syncCampaignMainScrollFromTop);
   els.campaignMapImage.addEventListener("load", () => {
     state.campaignImageReady = true;
     els.campaignEmpty.classList.add("hidden");
     renderCampaignMarkers();
+    syncCampaignTopScrollFromMain();
   });
   els.campaignMapImage.addEventListener("error", () => {
     state.campaignImageReady = false;
     els.campaignEmpty.textContent = "Campaign map failed to load.";
     els.campaignEmpty.classList.remove("hidden");
+  });
+  els.advancedMapImage.addEventListener("load", () => {
+    state.advancedImageReady = true;
+    els.advancedEmpty.classList.add("hidden");
+    renderAdvancedMarkers();
+  });
+  els.advancedMapImage.addEventListener("error", () => {
+    state.advancedImageReady = false;
+    els.advancedEmpty.textContent = "Advanced map failed to load.";
+    els.advancedEmpty.classList.remove("hidden");
   });
   els.configMapImage.addEventListener("load", () => {
     state.configImageReady = true;
@@ -1339,6 +2595,11 @@ function bindEvents() {
     state.configZoom = Number(els.configZoom.value || 1);
     if (state.activeView === "config" && state.configImageReady) {
       renderConfigMarkers();
+      return;
+    }
+
+    if (state.activeView === "advanced" && state.advancedImageReady) {
+      renderAdvancedMarkers();
       return;
     }
 
@@ -1364,13 +2625,67 @@ function bindEvents() {
     loadConfigFormFromLocation(els.configExistingLocation.value);
   });
   els.saveConfigLocation.addEventListener("click", saveConfiguredLocation);
+  els.applyCampaignResolution.addEventListener("click", applyCampaignResolution);
+  [
+    els.campaignName,
+    els.description,
+    els.mapSelect,
+    els.airfieldSelect,
+    els.objectiveTarget,
+    els.objectiveUnitProfile,
+    els.objectiveIntensity,
+    els.startingRank,
+    els.startingCash,
+    els.timeOfDay,
+    els.weatherIntensity,
+    els.allowRespawn,
+    els.enableSam,
+    els.enableArtillery,
+    els.enableFactories,
+    els.enableGround,
+    els.enableShips,
+    els.advancedObjectiveSamSites,
+    els.advancedObjectiveArtillerySites,
+    els.advancedObjectiveFactoryBuildings,
+    els.advancedObjectiveTankUnits,
+    els.advancedObjectiveIfvUnits,
+    els.advancedResistanceScatteredGround,
+    els.advancedResistanceAaa,
+    els.advancedResistanceShortSam,
+    els.advancedResistanceMediumSam,
+    els.advancedResistanceHelicopters,
+    els.advancedResistanceFixedWing,
+    els.advancedFrontlinePairs,
+    els.advancedFrontlinePatrolGroups,
+    els.advancedFrontlineConvoyGroups,
+    els.advancedLocalePatrolGroups,
+    els.advancedObjectivePatrolGroups,
+    els.advancedHelicopterPatrolCount,
+    els.advancedFixedWingPatrolCount,
+    els.advancedRandomness
+  ].forEach((element) => {
+    const eventName = element.type === "range" ? "input" : "change";
+    element.addEventListener(eventName, () => {
+      renderAdvancedRandomnessValue();
+      renderAdvancedSummary();
+      renderCampaignMarkers();
+      renderAdvancedMarkers();
+      persistCampaignState().then(renderCampaignStateSummary);
+    });
+  });
   window.addEventListener("resize", () => {
     if (state.activeView === "config") {
       renderConfigMarkers();
       return;
     }
 
+    if (state.activeView === "advanced") {
+      renderAdvancedMarkers();
+      return;
+    }
+
     renderCampaignMarkers();
+    syncCampaignTopScrollFromMain();
   });
 
   document.getElementById("generate-campaign").addEventListener("click", exportCampaign);
@@ -1380,7 +2695,10 @@ function bindEvents() {
 async function loadCatalog() {
   setText(els.scanMeta, "Scanning local install and mission folders...");
   state.catalog = await window.nuclearOptionApi.loadCatalog();
+  const savedState = await window.nuclearOptionApi.loadCampaignState();
+  state.campaignState = savedState?.ok && savedState.exists ? savedState.state : null;
   state.selectedMapKey =
+    state.campaignState?.mapKey ||
     state.catalog.maps.find((entry) => entry.key === "Terrain1")?.key ||
     state.catalog.maps[0]?.key ||
     "Terrain1";
@@ -1389,20 +2707,29 @@ async function loadCatalog() {
   renderFactionOptions();
   renderLocationOptions();
   renderObjectiveOptions();
+  renderCampaignLogistics();
+  applyAdvancedThreatSettings(state.campaignState?.parameters?.advancedThreats || {});
+  applyCampaignState();
   renderObjectiveIntensityValue();
+  renderAdvancedRandomnessValue();
   renderOwnershipList();
+  renderCampaignLogistics();
   renderConfigLocationOptions();
   updateWorkspaceSummary();
+  renderCampaignStateSummary();
   updateScanMeta();
   renderCampaignView();
+  renderAdvancedView();
 }
 
 bindEvents();
 state.configZoom = Number(els.configZoom?.value || 1);
 renderObjectiveIntensityValue();
+renderAdvancedRandomnessValue();
 showView("campaign");
 updateWorkspaceSummary();
 renderCampaignView();
+renderAdvancedView();
 renderConfigView();
 setText(els.scanMeta, "Loading saved campaign state...");
 window.setTimeout(() => {

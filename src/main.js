@@ -3,7 +3,9 @@ const path = require("path");
 const {
   buildCatalog,
   exportCampaign,
+  loadCampaignState,
   saveMapAnchor,
+  saveCampaignState,
   saveLocationOwnership,
   upsertConfiguredLocation,
   DEFAULT_PATHS
@@ -36,6 +38,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle("campaign:export", async (_event, payload) => {
     return exportCampaign(payload);
+  });
+
+  ipcMain.handle("campaignState:load", async () => {
+    return loadCampaignState();
+  });
+
+  ipcMain.handle("campaignState:save", async (_event, payload) => {
+    return saveCampaignState(payload);
   });
 
   ipcMain.handle("anchors:save", async (_event, payload) => {

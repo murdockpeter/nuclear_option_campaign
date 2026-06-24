@@ -9,11 +9,19 @@
   <body>
     <div class="shell">
       <header class="topbar">
-        <div class="brand">
-          <div class="brand__eyebrow">Desktop Prototype</div>
-          <h1>Nuclear Option Campaign Generator</h1>
+        <div class="topbar__hero">
+          <img class="topbar__hero-image" src="../images/nuclear_option.jpg" alt="Nuclear Option artwork" />
+          <div class="topbar__hero-overlay">
+            <div class="brand">
+              <div class="brand__eyebrow">Desktop Prototype</div>
+              <h1>Nuclear Option Campaign Generator</h1>
+            </div>
+            <div class="topbar__hero-footer">
+              <div class="topbar__hero-kicker">Persistent campaign authoring, targeting, and mission export</div>
+              <div class="topbar__meta" id="scan-meta">Scanning local install...</div>
+            </div>
+          </div>
         </div>
-        <div class="topbar__meta" id="scan-meta">Scanning local install...</div>
       </header>
 
       <main class="layout">
@@ -21,6 +29,11 @@
           <div class="section-header">
             <span>Campaign Settings</span>
             <button class="ghost" id="reload-catalog">Reload Catalog</button>
+          </div>
+
+          <div class="workspace-card workspace-card--full campaign-state-summary" id="campaign-state-summary">
+            <div class="workspace-card__label">Persistent Campaign State</div>
+            <div class="workspace-card__text">No campaign state saved yet.</div>
           </div>
 
           <div class="stack">
@@ -95,6 +108,10 @@
               <div class="slider-value" id="objective-intensity-value">Medium</div>
             </label>
 
+            <div class="inline-actions">
+              <button class="secondary" id="open-advanced-targets">Open Advanced Targets</button>
+            </div>
+
             <div class="field-grid">
               <label class="field">
                 <span>Time of Day</span>
@@ -124,6 +141,17 @@
               </div>
             </div>
             <div class="ownership-list" id="ownership-list"></div>
+
+            <div class="section-header section-header--sub">
+              <span>Campaign Resolution</span>
+            </div>
+            <div class="workspace-card workspace-card--full">
+              <div class="workspace-card__text">
+                Update persistent faction funds, reserves, and post-mission ownership here. The next generated mission will use this saved campaign state.
+              </div>
+            </div>
+            <div class="logistics-list" id="campaign-logistics"></div>
+            <button class="secondary" id="apply-campaign-resolution">Apply Resolution To Campaign State</button>
           </div>
 
           <div class="section-header section-header--sub">
@@ -145,6 +173,7 @@
               </label>
               <button class="secondary" id="show-campaign-view">Campaign Setup</button>
               <button class="ghost" id="show-config-view">Configure Locations</button>
+              <button class="ghost" id="show-advanced-view">Advanced Targets</button>
             </div>
           </div>
 
@@ -179,6 +208,9 @@
             </div>
             <div class="campaign-stage" id="campaign-stage">
               <div class="campaign-empty" id="campaign-empty">Click Reload Catalog to load the selected map.</div>
+              <div class="campaign-top-scroll" id="campaign-top-scroll">
+                <div class="campaign-top-scroll__track" id="campaign-top-scroll-track"></div>
+              </div>
               <div class="campaign-scroll" id="campaign-scroll">
                 <div class="campaign-canvas" id="campaign-canvas">
                   <img id="campaign-map-image" alt="Campaign map" />
@@ -242,6 +274,127 @@
               </label>
 
               <button class="primary" id="save-config-location">Save Location To CSV</button>
+            </div>
+          </div>
+
+          <div class="advanced-body hidden" id="advanced-view">
+            <div class="advanced-sidebar">
+              <div class="workspace-card workspace-card--full">
+                <div class="workspace-card__label">Advanced Targeting Model</div>
+                <div class="workspace-card__text">
+                  Configure the target package, enemy resistance, and patrol pressure in detail. These values are saved into the persistent campaign state and used on the next mission export.
+                </div>
+              </div>
+
+              <div class="workspace-card workspace-card--full">
+                <div class="workspace-card__label">Objective Package</div>
+                <div class="advanced-grid">
+                  <label class="field">
+                    <span>SAM Sites</span>
+                    <input id="advanced-objective-sam-sites" type="number" min="0" max="12" step="1" value="2" />
+                  </label>
+                  <label class="field">
+                    <span>Artillery Sites</span>
+                    <input id="advanced-objective-artillery-sites" type="number" min="0" max="12" step="1" value="2" />
+                  </label>
+                  <label class="field">
+                    <span>Factory Buildings</span>
+                    <input id="advanced-objective-factory-buildings" type="number" min="0" max="12" step="1" value="2" />
+                  </label>
+                  <label class="field">
+                    <span>Tank Units</span>
+                    <input id="advanced-objective-tank-units" type="number" min="0" max="24" step="1" value="4" />
+                  </label>
+                  <label class="field">
+                    <span>IFV Units</span>
+                    <input id="advanced-objective-ifv-units" type="number" min="0" max="24" step="1" value="4" />
+                  </label>
+                </div>
+              </div>
+
+              <div class="workspace-card workspace-card--full">
+                <div class="workspace-card__label">Enemy Resistance</div>
+                <div class="toggle-grid toggle-grid--stacked">
+                  <label><input type="checkbox" id="advanced-resistance-scattered-ground" checked /> Scattered Ground Vehicles</label>
+                  <label><input type="checkbox" id="advanced-resistance-aaa" checked /> Anti-Aircraft Artillery</label>
+                  <label><input type="checkbox" id="advanced-resistance-short-sam" checked /> Short-Range SAM</label>
+                  <label><input type="checkbox" id="advanced-resistance-medium-sam" checked /> Medium-Range SAM</label>
+                  <label><input type="checkbox" id="advanced-resistance-helicopters" checked /> Helicopter Patrols</label>
+                  <label><input type="checkbox" id="advanced-resistance-fixed-wing" checked /> Fixed-Wing Patrols</label>
+                </div>
+              </div>
+
+              <div class="workspace-card workspace-card--full">
+                <div class="workspace-card__label">Patrol and Front-Line Density</div>
+                <div class="advanced-grid">
+                  <label class="field">
+                    <span>Front-Line Axes</span>
+                    <input id="advanced-frontline-pairs" type="number" min="0" max="8" step="1" value="4" />
+                  </label>
+                  <label class="field">
+                    <span>Front-Line Patrol Groups</span>
+                    <input id="advanced-frontline-patrol-groups" type="number" min="0" max="8" step="1" value="4" />
+                  </label>
+                  <label class="field">
+                    <span>Front-Line Convoy Groups</span>
+                    <input id="advanced-frontline-convoy-groups" type="number" min="0" max="8" step="1" value="4" />
+                  </label>
+                  <label class="field">
+                    <span>Locale Patrol Groups</span>
+                    <input id="advanced-locale-patrol-groups" type="number" min="0" max="12" step="1" value="4" />
+                  </label>
+                  <label class="field">
+                    <span>Objective Patrol Groups</span>
+                    <input id="advanced-objective-patrol-groups" type="number" min="0" max="8" step="1" value="3" />
+                  </label>
+                  <label class="field">
+                    <span>Helicopter Patrol Count</span>
+                    <input id="advanced-helicopter-patrol-count" type="number" min="0" max="8" step="1" value="2" />
+                  </label>
+                  <label class="field">
+                    <span>Fixed-Wing Patrol Count</span>
+                    <input id="advanced-fixed-wing-patrol-count" type="number" min="0" max="8" step="1" value="2" />
+                  </label>
+                </div>
+                <label class="field">
+                  <span>Randomization</span>
+                  <input id="advanced-randomness" type="range" min="0" max="100" step="5" value="35" />
+                  <div class="slider-stops">
+                    <span>Static</span>
+                    <span>Light</span>
+                    <span>Mixed</span>
+                    <span>Chaotic</span>
+                  </div>
+                  <div class="slider-value" id="advanced-randomness-value">35%</div>
+                </label>
+              </div>
+            </div>
+
+            <div class="advanced-main">
+              <div class="workspace-summary-grid workspace-summary-grid--compact">
+                <div class="workspace-card">
+                  <div class="workspace-card__label">Selected Objective</div>
+                  <div class="workspace-card__value" id="advanced-summary-objective">-</div>
+                </div>
+                <div class="workspace-card">
+                  <div class="workspace-card__label">Objective Package Units</div>
+                  <div class="workspace-card__value" id="advanced-summary-package">-</div>
+                </div>
+                <div class="workspace-card workspace-card--full">
+                  <div class="workspace-card__label">Threat Posture</div>
+                  <div class="workspace-card__text" id="advanced-summary-threats">-</div>
+                </div>
+              </div>
+
+              <div class="advanced-stage" id="advanced-stage">
+                <div class="campaign-empty" id="advanced-empty">Loading map...</div>
+                <div class="campaign-scroll" id="advanced-scroll">
+                  <div class="campaign-canvas" id="advanced-canvas">
+                    <img id="advanced-map-image" alt="Advanced targeting map" />
+                    <div id="advanced-marker-layer"></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
