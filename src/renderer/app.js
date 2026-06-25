@@ -232,6 +232,15 @@ function resolveRendererAsset(assetPath) {
   return new URL(assetPath, window.location.href).href;
 }
 
+function loadImageAsset(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Failed to load image asset: ${src}`));
+    image.src = src;
+  });
+}
+
 function normalizeName(value) {
   return (value || "").trim().toLowerCase();
 }
@@ -542,6 +551,258 @@ function appendPatrolRadiusOverlays(layer, map, objectiveLocation, settings) {
     ring.innerHTML = `<span class="campaign-radius-overlay__label">${overlay.label}</span>`;
     layer.appendChild(ring);
   });
+}
+
+function getPatrolRadiusOverlayDescriptors(settings = {}) {
+  return [
+    {
+      enabled: Boolean(settings?.operationalResistance?.helicopters) && Number(settings?.patrolPlan?.helicopterPatrols || 0) > 0,
+      radiusMeters: Number(settings?.patrolPlan?.helicopterPatrolRadius || 0),
+      color: "rgba(102, 208, 203, 0.88)",
+      fill: "rgba(102, 208, 203, 0.08)",
+      label: `HELO PATROL ${Math.round(Number(settings?.patrolPlan?.helicopterPatrolRadius || 0))}M`
+    },
+    {
+      enabled: Boolean(settings?.operationalResistance?.fixedWingPatrols) && Number(settings?.patrolPlan?.fixedWingPatrols || 0) > 0,
+      radiusMeters: Number(settings?.patrolPlan?.fixedWingPatrolRadius || 0),
+      color: "rgba(242, 166, 64, 0.88)",
+      fill: "rgba(242, 166, 64, 0.06)",
+      label: `FIXED-WING CAP ${Math.round(Number(settings?.patrolPlan?.fixedWingPatrolRadius || 0))}M`
+    }
+  ].filter((overlay) => overlay.enabled && Number.isFinite(overlay.radiusMeters) && overlay.radiusMeters > 0);
+}
+
+function drawCanvasMarker(context, x, y, options = {}) {
+  const owner = options.owner || "Neutral";
+  const isStart = Boolean(options.isStart);
+  const isObjective = Boolean(options.isObjective);
+  const friendlyColor = "#66d0cb";
+  const enemyColor = "#f26363";
+  const neutralColor = "#d7e4ec";
+  const dotColor =
+    owner === els.friendlyFaction.value ? friendlyColor :
+    owner === els.enemyFaction.value ? enemyColor :
+    neutralColor;
+
+  context.save();
+  context.translate(x, y);
+
+  context.beginPath();
+  context.fillStyle = dotColor;
+  context.strokeStyle = "#ffffff";
+  context.lineWidth = 4;
+  context.arc(0, 0, 11, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+
+  if (isStart) {
+    context.beginPath();
+    context.strokeStyle = "rgba(102, 208, 203, 0.92)";
+    context.lineWidth = 3;
+    context.arc(0, 0, 26, 0, Math.PI * 2);
+    context.stroke();
+
+    context.beginPath();
+    context.strokeStyle = "rgba(102, 208, 203, 0.45)";
+    context.lineWidth = 2;
+    context.arc(0, 0, 40, 0, Math.PI * 2);
+    context.stroke();
+  }
+
+  if (isObjective) {
+    context.strokeStyle = "rgba(242, 166, 64, 0.95)";
+    context.lineWidth = 3;
+    context.setLineDash([8, 6]);
+    context.beginPath();
+    context.arc(0, 0, 38, 0, Math.PI * 2);
+    context.stroke();
+    context.setLineDash([]);
+
+    context.beginPath();
+    context.moveTo(-54, 0);
+    context.lineTo(54, 0);
+    context.moveTo(0, -54);
+    context.lineTo(0, 54);
+    context.stroke();
+  }
+
+  context.restore();
+
+  context.save();
+  context.font = "700 38px Segoe UI";
+  context.textAlign = "center";
+  context.textBaseline = "top";
+  context.lineWidth = 8;
+  context.strokeStyle = "rgba(0,0,0,0.72)";
+  context.strokeText(options.label || "", x, y + 20);
+  context.fillStyle = "#edf4f8";
+  context.fillText(options.label || "", x, y + 20);
+  context.restore();
+}
+
+function drawCanvasRadiusOverlays(context, map, objectiveLocation, settings, frame) {
+  if (!objectiveLocation || !Number.isFinite(Number(objectiveLocation.pixelX)) || !Number.isFinite(Number(objectiveLocation.pixelY))) {
+    return;
+  }
+
+  const metersPerPixel = estimateMetersPerPixel(map);
+  if (!Number.isFinite(metersPerPixel) || metersPerPixel <= 0) {
+    return;
+  }
+
+  const centerX = frame.x + Number(objectiveLocation.pixelX) * frame.scale;
+  const centerY = frame.y + Number(objectiveLocation.pixelY) * frame.scale;
+
+  getPatrolRadiusOverlayDescriptors(settings).forEach((overlay) => {
+    const radiusPixels = (overlay.radiusMeters / metersPerPixel) * frame.scale;
+    context.save();
+    context.setLineDash([18, 14]);
+    context.strokeStyle = overlay.color;
+    context.fillStyle = overlay.fill;
+    context.lineWidth = 4;
+    context.beginPath();
+    context.arc(centerX, centerY, radiusPixels, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.setLineDash([]);
+
+    context.fillStyle = "rgba(7, 19, 29, 0.9)";
+    context.strokeStyle = "rgba(255,255,255,0.16)";
+    context.lineWidth = 2;
+    context.font = "700 22px Segoe UI";
+    const labelWidth = Math.max(290, context.measureText(overlay.label).width + 40);
+    const labelX = centerX - labelWidth / 2;
+    const labelY = centerY - radiusPixels - 54;
+    const labelHeight = 38;
+    context.beginPath();
+    context.roundRect(labelX, labelY, labelWidth, labelHeight, 14);
+    context.fill();
+    context.stroke();
+
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillStyle = "#edf4f8";
+    context.fillText(overlay.label, centerX, labelY + labelHeight / 2);
+    context.restore();
+  });
+}
+
+async function buildBriefingGraphic() {
+  const map = mapByKey(state.selectedMapKey);
+  if (!map) {
+    return null;
+  }
+
+  const mapImage = await loadImageAsset(resolveRendererAsset(map.imagePath));
+  const locations = getOperationalLocations(map).filter((entry) => entry.pixelX != null && entry.pixelY != null);
+  const startingAirfield = resolveGameLocation(map, els.airfieldSelect.value);
+  const objectiveLocation = resolveGameLocation(map, els.objectiveTarget.value);
+  const advancedThreats = getAdvancedThreatSettings();
+  const canvas = document.createElement("canvas");
+  const padding = 88;
+  const headerHeight = 320;
+  const footerHeight = 220;
+  const drawWidth = Number(map.pixelSize.width || mapImage.naturalWidth || 3000);
+  const drawHeight = Number(map.pixelSize.height || mapImage.naturalHeight || 3000);
+  const scale = drawWidth / Number(map.pixelSize.width || drawWidth);
+  const width = drawWidth + padding * 2;
+  const height = headerHeight + drawHeight + footerHeight + padding;
+  const mapX = padding;
+  const mapY = headerHeight;
+  const context = canvas.getContext("2d");
+
+  canvas.width = width;
+  canvas.height = height;
+
+  context.fillStyle = "#09131a";
+  context.fillRect(0, 0, width, height);
+
+  const headerGradient = context.createLinearGradient(0, 0, width, 0);
+  headerGradient.addColorStop(0, "#133340");
+  headerGradient.addColorStop(0.5, "#10232d");
+  headerGradient.addColorStop(1, "#0a141b");
+  context.fillStyle = headerGradient;
+  context.fillRect(0, 0, width, headerHeight);
+
+  context.fillStyle = "#66d0cb";
+  context.font = "700 30px Segoe UI";
+  context.fillText("MISSION BRIEFING", padding, 58);
+
+  context.fillStyle = "#f3f7fa";
+  context.font = "800 92px Segoe UI";
+  context.fillText(els.campaignName.value.trim() || "Untitled Campaign", padding, 142);
+
+  context.font = "600 42px Segoe UI";
+  context.fillStyle = "#c8d6df";
+  context.fillText(`${map.label} | Start: ${startingAirfield?.name || "-"} | Objective: ${objectiveLocation?.name || "-"}`, padding, 210);
+
+  context.font = "500 32px Segoe UI";
+  context.fillStyle = "#9eb2bf";
+  context.fillText(`Threat posture: ${els.objectiveUnitProfile.value} | Intensity: ${OBJECTIVE_INTENSITY_LABELS[Number(els.objectiveIntensity.value || 1)] || "Medium"} | Weather ${Math.round(Number(els.weatherIntensity.value || 0) * 100)}% | Time ${Number(els.timeOfDay.value || 10)}:00`, padding, 266);
+
+  context.drawImage(mapImage, mapX, mapY, drawWidth, drawHeight);
+
+  context.strokeStyle = "rgba(171, 201, 212, 0.12)";
+  context.lineWidth = 1;
+  const gridSize = 72 * scale;
+  for (let x = mapX; x <= mapX + drawWidth; x += gridSize) {
+    context.beginPath();
+    context.moveTo(x, mapY);
+    context.lineTo(x, mapY + drawHeight);
+    context.stroke();
+  }
+  for (let y = mapY; y <= mapY + drawHeight; y += gridSize) {
+    context.beginPath();
+    context.moveTo(mapX, y);
+    context.lineTo(mapX + drawWidth, y);
+    context.stroke();
+  }
+
+  drawCanvasRadiusOverlays(context, map, objectiveLocation, advancedThreats, {
+    x: mapX,
+    y: mapY,
+    scale
+  });
+
+  locations.forEach((location) => {
+    drawCanvasMarker(
+      context,
+      mapX + Number(location.pixelX) * scale,
+      mapY + Number(location.pixelY) * scale,
+      {
+        owner: location.initialOwner,
+        label: location.name,
+        isStart: startingAirfield?.name === location.name,
+        isObjective: objectiveLocation?.name === location.name
+      }
+    );
+  });
+
+  context.fillStyle = "#0b151c";
+  context.fillRect(0, height - footerHeight, width, footerHeight);
+  context.strokeStyle = "rgba(255,255,255,0.08)";
+  context.beginPath();
+  context.moveTo(0, height - footerHeight);
+  context.lineTo(width, height - footerHeight);
+  context.stroke();
+
+  const summaryLines = [
+    `Friendly: ${els.friendlyFaction.value} | Enemy: ${els.enemyFaction.value}`,
+    `Objective package: SAM ${els.advancedObjectiveSamSites.value}, Artillery ${els.advancedObjectiveArtillerySites.value}, Factories ${els.advancedObjectiveFactoryBuildings.value}, Tanks ${els.advancedObjectiveTankUnits.value}, IFVs ${els.advancedObjectiveIfvUnits.value}`,
+    `Patrols: Helos ${els.advancedHelicopterPatrolCount.value} @ ${els.advancedHelicopterPatrolRadius.value}m | Fixed-wing ${els.advancedFixedWingPatrolCount.value} @ ${els.advancedFixedWingPatrolRadius.value}m | Objective patrol groups ${els.advancedObjectivePatrolGroups.value}`,
+    `Pressure: Front-line axes ${els.advancedFrontlinePairs.value}, patrol groups ${els.advancedFrontlinePatrolGroups.value}, convoys ${els.advancedFrontlineConvoyGroups.value}, locale patrols ${els.advancedLocalePatrolGroups.value}, randomness ${els.advancedRandomness.value}%`
+  ];
+
+  context.font = "600 28px Segoe UI";
+  context.fillStyle = "#edf4f8";
+  summaryLines.forEach((line, index) => {
+    context.fillText(line, padding, height - footerHeight + 52 + index * 38);
+  });
+
+  return {
+    fileName: `${els.campaignName.value.trim() || "campaign"}_briefing.png`,
+    dataUrl: canvas.toDataURL("image/png")
+  };
 }
 
 function upsertConfiguredLocationInState(row) {
@@ -2297,7 +2558,7 @@ function buildExportAirbases(map, locations) {
     });
 }
 
-function getCampaignPayload() {
+async function getCampaignPayload() {
   const map = mapByKey(state.selectedMapKey);
   const locations = getOperationalLocations(map).filter((entry) => entry.gameWorldX != null && entry.gameWorldZ != null);
   const startingAirbase = resolveGameLocation(map, els.airfieldSelect.value);
@@ -2398,6 +2659,7 @@ function getCampaignPayload() {
   return {
     paths: state.catalog.paths,
     campaignName: els.campaignName.value,
+    briefingGraphic: await buildBriefingGraphic(),
     parameters: {
       description: els.description.value,
       mapKey: map.key,
@@ -2449,7 +2711,7 @@ function getCampaignPayload() {
 
 async function exportCampaign() {
   try {
-    const result = await window.nuclearOptionApi.exportCampaign(getCampaignPayload());
+    const result = await window.nuclearOptionApi.exportCampaign(await getCampaignPayload());
     if (!result?.ok) {
       els.output.textContent = "Export failed.";
       return;
@@ -2474,6 +2736,7 @@ async function exportCampaign() {
       <div>Campaign exported.</div>
       <div>${result.campaignPath}</div>
       <div>${result.missionFolder}</div>
+      <div>Briefing image: ${result.briefingGraphicPath || "not generated"}</div>
       <div>Campaign state: ${result.campaignStatePath || "not saved"}</div>
       ${installLine}
     `;

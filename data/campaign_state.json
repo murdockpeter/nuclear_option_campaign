@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "missionCount": 18,
-  "lastExportAt": "2026-06-24T19:22:32.222Z",
+  "missionCount": 20,
+  "lastExportAt": "2026-06-24T20:23:12.656Z",
   "campaignName": "Operation Iron Seed",
   "mapKey": "Terrain1",
   "mapLabel": "Heartland",
@@ -24606,9 +24606,9 @@
         "faction": "Primeva",
         "UniqueName": "objective_factory_agrapol_airbase_1",
         "globalPosition": {
-          "x": -711.8758494095696,
+          "x": -777.3090124153616,
           "y": 136.739990234375,
-          "z": -27259.607295520047
+          "z": -27264.037703427104
         },
         "rotation": {
           "x": 0,
@@ -24639,9 +24639,9 @@
         "faction": "Primeva",
         "UniqueName": "objective_factory_agrapol_airbase_2",
         "globalPosition": {
-          "x": -1541.9978106823578,
+          "x": -1543.6441658353588,
           "y": 136.739990234375,
-          "z": -27285.653622453774
+          "z": -27292.914567984182
         },
         "rotation": {
           "x": 0,

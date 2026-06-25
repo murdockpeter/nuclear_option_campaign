@@ -29,12 +29,14 @@ The app is organized around three main workspaces:
 - Supports manual ownership assignment per named location.
 - Exports a fresh mission start-state instead of seeding from an existing scenario.
 - Installs exported missions into the live `Nuclear Option` missions folder.
+- Exports a mission briefing PNG alongside each generated mission package.
 - Persists faction logistics, ownership, objective metadata, and generated order-of-battle records.
 - Displays configured locations as ownership nodes on the UI map.
 - Highlights the selected starting airfield and objective on the campaign map.
 - Supports advanced target generation for ground, factories, patrols, convoys, and air threats.
 - Generates airborne enemy helicopter and fixed-wing patrols as real `aircraft` entries.
 - Draws configurable helo and fixed-wing patrol radius overlays on the map.
+- Produces a mission briefing graphic using the authored map, ownership nodes, objective marker, and patrol overlays.
 - Includes mission briefing text showing the intended starting airfield and primary objective.
 
 ## Campaign Setup
@@ -171,6 +173,7 @@ Exports currently write:
 - `exports/<Campaign Name>/campaign.json`
 - `exports/<Campaign Name>/<Campaign Name>/meta.json`
 - `exports/<Campaign Name>/<Campaign Name>/<Campaign Name>.json`
+- `exports/<Campaign Name>/<Campaign Name>/<Campaign Name>_briefing.png`
 
 The exporter also attempts to install the generated mission into:
 

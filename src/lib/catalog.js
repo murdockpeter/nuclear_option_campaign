@@ -89,6 +89,21 @@ function parseCsv(text) {
   });
 }
 
+function writeDataUrlFile(filePath, dataUrl) {
+  if (!dataUrl || typeof dataUrl !== "string") {
+    return false;
+  }
+
+  const match = dataUrl.match(/^data:(.+?);base64,(.+)$/);
+  if (!match) {
+    return false;
+  }
+
+  const buffer = Buffer.from(match[2], "base64");
+  fs.writeFileSync(filePath, buffer);
+  return true;
+}
+
 function writeCsv(filePath, rows) {
   if (!rows.length) {
     return;
@@ -788,6 +803,16 @@ function exportCampaign(payload) {
     JSON.stringify({ FileName: campaignName }, null, 2)
   );
 
+  let briefingGraphicPath = null;
+  if (payload?.briefingGraphic?.dataUrl) {
+    const briefingFileName = sanitizeName(
+      path.basename(payload.briefingGraphic.fileName || `${campaignName}_briefing`)
+        .replace(/\.[^/.]+$/, "")
+    );
+    briefingGraphicPath = path.join(missionFolder, `${briefingFileName}.png`);
+    writeDataUrlFile(briefingGraphicPath, payload.briefingGraphic.dataUrl);
+  }
+
   let installedMissionFolder = null;
   let installed = false;
   let installError = null;
@@ -861,6 +886,7 @@ function exportCampaign(payload) {
     exportRoot,
     campaignPath,
     missionFolder,
+    briefingGraphicPath,
     installed,
     installedMissionFolder,
     installError,
