@@ -1,12 +1,51 @@
 {
   "name": "nuclear-option-campaign",
-  "version": "0.1.0",
+  "version": "1.0.0-beta",
   "description": "Electron prototype for authoring dynamic Nuclear Option campaigns.",
+  "author": "Peter G. Robbins",
   "main": "src/main.js",
   "scripts": {
-    "start": "set ELECTRON_RUN_AS_NODE=& electron ."
+    "start": "set ELECTRON_RUN_AS_NODE=& electron .",
+    "dist": "electron-builder --win nsis",
+    "dist:dir": "electron-builder --win dir"
   },
-  "dependencies": {
-    "electron": "^37.1.0"
+  "devDependencies": {
+    "electron": "^37.1.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.peterrobbins.nuclearoption.campaign",
+    "productName": "Nuclear Option Campaign Generator",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "data/**/*",
+      "package.json",
+      "README.md"
+    ],
+    "extraMetadata": {
+      "main": "src/main.js"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Nuclear Option Campaign Generator",
+      "artifactName": "NOCG Setup Beta 1.0.${ext}"
+    }
   }
 }

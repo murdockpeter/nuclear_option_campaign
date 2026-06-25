@@ -168,6 +168,8 @@ Location authoring data is stored in:
 
 - `data/heartland_pixel_locations.csv`
 
+For packaged installs, the app seeds the bundled default Heartland CSV into the app's writable per-user data folder on first launch and then reads and writes from that user-data location afterward.
+
 ## Export Output
 
 Exports currently write:

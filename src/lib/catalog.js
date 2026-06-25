@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { app } = require("electron");
 
 const DEFAULT_PATHS = {
   installPath: "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Nuclear Option",
@@ -22,10 +23,6 @@ const DEFAULT_PATHS = {
   )
 };
 
-const CUSTOM_ANCHORS_PATH = path.join(process.cwd(), "data", "map-anchors.json");
-const HEARTLAND_PIXEL_LOCATIONS_PATH = path.join(process.cwd(), "data", "heartland_pixel_locations.csv");
-const CAMPAIGN_STATE_PATH = path.join(process.cwd(), "data", "campaign_state.json");
-const APP_SETTINGS_PATH = path.join(process.cwd(), "data", "app_settings.json");
 const NUCLEAR_OPTION_APP_ID = "2168680";
 const HEARTLAND_LOCATION_HEADERS = [
   "map_key",
@@ -74,6 +71,62 @@ const MAP_PRESETS = {
   }
 };
 
+function safeAppPath(name) {
+  try {
+    return app?.getPath?.(name);
+  } catch {
+    return null;
+  }
+}
+
+function getWritableRoot() {
+  return safeAppPath("userData") || process.cwd();
+}
+
+function getBundledRoot() {
+  if (app?.isPackaged) {
+    return app?.getAppPath?.() || process.resourcesPath || process.cwd();
+  }
+
+  return process.cwd();
+}
+
+function getWritableDataDir() {
+  return path.join(getWritableRoot(), "data");
+}
+
+function getBundledDataDir() {
+  return path.join(getBundledRoot(), "data");
+}
+
+function getExportsRoot() {
+  if (app?.isPackaged) {
+    return path.join(getWritableRoot(), "exports");
+  }
+
+  return path.join(process.cwd(), "exports");
+}
+
+function getCustomAnchorsPath() {
+  return path.join(getWritableDataDir(), "map-anchors.json");
+}
+
+function getHeartlandPixelLocationsPath() {
+  return path.join(getWritableDataDir(), "heartland_pixel_locations.csv");
+}
+
+function getCampaignStatePath() {
+  return path.join(getWritableDataDir(), "campaign_state.json");
+}
+
+function getAppSettingsPath() {
+  return path.join(getWritableDataDir(), "app_settings.json");
+}
+
+function getBundledHeartlandPixelLocationsPath() {
+  return path.join(getBundledDataDir(), "heartland_pixel_locations.csv");
+}
+
 function parseCsv(text) {
   const lines = text
     .split(/\r?\n/)
@@ -120,6 +173,29 @@ function writeCsv(filePath, rows) {
   fs.writeFileSync(filePath, `${lines.join("\n")}\n`);
 }
 
+function ensureWritableDataBootstrap() {
+  const writableDataDir = getWritableDataDir();
+  ensureDir(writableDataDir);
+
+  const writableHeartlandPath = getHeartlandPixelLocationsPath();
+  const bundledHeartlandPath = getBundledHeartlandPixelLocationsPath();
+  const bundledRows = safeExists(bundledHeartlandPath)
+    ? parseCsv(fs.readFileSync(bundledHeartlandPath, "utf8"))
+    : [];
+
+  const needsSeed =
+    !safeExists(writableHeartlandPath) ||
+    parseCsv(fs.readFileSync(writableHeartlandPath, "utf8")).length === 0;
+
+  if (needsSeed) {
+    if (bundledRows.length > 0) {
+      fs.copyFileSync(bundledHeartlandPath, writableHeartlandPath);
+    } else {
+      fs.writeFileSync(writableHeartlandPath, `${HEARTLAND_LOCATION_HEADERS.join(",")}\n`);
+    }
+  }
+}
+
 function applyHeaders(rows, headers) {
   return rows.map((row) => {
     const normalized = {};
@@ -131,12 +207,14 @@ function applyHeaders(rows, headers) {
 }
 
 function loadHeartlandPixelLookup() {
-  if (!safeExists(HEARTLAND_PIXEL_LOCATIONS_PATH)) {
+  ensureWritableDataBootstrap();
+  const heartlandPath = getHeartlandPixelLocationsPath();
+  if (!safeExists(heartlandPath)) {
     return {};
   }
 
   try {
-    const rows = parseCsv(fs.readFileSync(HEARTLAND_PIXEL_LOCATIONS_PATH, "utf8"));
+    const rows = parseCsv(fs.readFileSync(heartlandPath, "utf8"));
     return Object.fromEntries(
       rows
         .filter((row) => row.map_key === "Terrain1" && row.name && row.pixel_x && row.pixel_y)
@@ -157,9 +235,11 @@ function loadHeartlandPixelLookup() {
 
 function loadConfiguredLocationsByMap() {
   const output = {};
+  ensureWritableDataBootstrap();
+  const heartlandPath = getHeartlandPixelLocationsPath();
 
-  if (safeExists(HEARTLAND_PIXEL_LOCATIONS_PATH)) {
-    const rows = parseCsv(fs.readFileSync(HEARTLAND_PIXEL_LOCATIONS_PATH, "utf8"))
+  if (safeExists(heartlandPath)) {
+    const rows = parseCsv(fs.readFileSync(heartlandPath, "utf8"))
       .filter((row) => row.map_key && row.name)
       .map((row) => ({
         mapKey: row.map_key,
@@ -210,12 +290,14 @@ function normalizeLocationKey(value) {
 }
 
 function loadCustomAnchors() {
-  if (!safeExists(CUSTOM_ANCHORS_PATH)) {
+  ensureWritableDataBootstrap();
+  const customAnchorsPath = getCustomAnchorsPath();
+  if (!safeExists(customAnchorsPath)) {
     return {};
   }
 
   try {
-    return JSON.parse(fs.readFileSync(CUSTOM_ANCHORS_PATH, "utf8"));
+    return JSON.parse(fs.readFileSync(customAnchorsPath, "utf8"));
   } catch {
     return {};
   }
@@ -341,7 +423,8 @@ function readJson(filePath) {
 }
 
 function loadAppSettings() {
-  return readJsonIfExists(APP_SETTINGS_PATH, {
+  ensureWritableDataBootstrap();
+  return readJsonIfExists(getAppSettingsPath(), {
     installPathOverride: "",
     missionsPathOverride: "",
     tempMissionsPathOverride: ""
@@ -349,17 +432,19 @@ function loadAppSettings() {
 }
 
 function saveAppSettings(settings = {}) {
+  ensureWritableDataBootstrap();
   const nextSettings = {
     installPathOverride: settings.installPathOverride || "",
     missionsPathOverride: settings.missionsPathOverride || "",
     tempMissionsPathOverride: settings.tempMissionsPathOverride || ""
   };
 
-  ensureDir(path.dirname(APP_SETTINGS_PATH));
-  fs.writeFileSync(APP_SETTINGS_PATH, JSON.stringify(nextSettings, null, 2));
+  const appSettingsPath = getAppSettingsPath();
+  ensureDir(path.dirname(appSettingsPath));
+  fs.writeFileSync(appSettingsPath, JSON.stringify(nextSettings, null, 2));
   return {
     ok: true,
-    filePath: APP_SETTINGS_PATH,
+    filePath: appSettingsPath,
     settings: nextSettings
   };
 }
@@ -569,6 +654,7 @@ function discoverInstallSummary(installPath) {
 }
 
 function buildCatalog(paths = DEFAULT_PATHS) {
+  ensureWritableDataBootstrap();
   const resolvedPaths = resolveCatalogPaths(paths);
   const customAnchors = loadCustomAnchors();
   const configuredLocationsByMap = loadConfiguredLocationsByMap();
@@ -650,7 +736,7 @@ function buildCatalog(paths = DEFAULT_PATHS) {
       { id: "Primeva", label: "Primeva", color: "#2b70b8" }
     ],
     configuredLocationsByMap,
-    customAnchorsPath: CUSTOM_ANCHORS_PATH
+    customAnchorsPath: getCustomAnchorsPath()
   };
 }
 
@@ -823,7 +909,7 @@ function buildLegacyFactionObjectives(payload) {
 
 function exportCampaign(payload) {
   const campaignName = sanitizeName(payload?.campaignName || payload?.missionName || "Untitled Campaign");
-  const exportRoot = path.join(process.cwd(), "exports", campaignName);
+  const exportRoot = path.join(getExportsRoot(), campaignName);
   ensureDir(exportRoot);
 
   const campaign = {
@@ -966,7 +1052,8 @@ function exportCampaign(payload) {
     }
   }
 
-  const previousState = readJsonIfExists(CAMPAIGN_STATE_PATH, null);
+  const campaignStatePath = getCampaignStatePath();
+  const previousState = readJsonIfExists(campaignStatePath, null);
   const previousMissionCount = Number(previousState?.missionCount || 0);
   const ownershipVehicles = payload.initialState?.ownershipVehicles || [];
   const persistedUnits = payload.initialState?.orderOfBattle?.units || previousState?.orderOfBattle?.units || [];
@@ -1015,8 +1102,8 @@ function exportCampaign(payload) {
     }
   };
 
-  ensureDir(path.dirname(CAMPAIGN_STATE_PATH));
-  fs.writeFileSync(CAMPAIGN_STATE_PATH, JSON.stringify(campaignState, null, 2));
+  ensureDir(path.dirname(campaignStatePath));
+  fs.writeFileSync(campaignStatePath, JSON.stringify(campaignState, null, 2));
 
   return {
     ok: true,
@@ -1027,16 +1114,18 @@ function exportCampaign(payload) {
     installed,
     installedMissionFolder,
     installError,
-    campaignStatePath: CAMPAIGN_STATE_PATH
+    campaignStatePath
   };
 }
 
 function loadCampaignState() {
-  const state = readJsonIfExists(CAMPAIGN_STATE_PATH, null);
+  ensureWritableDataBootstrap();
+  const campaignStatePath = getCampaignStatePath();
+  const state = readJsonIfExists(campaignStatePath, null);
   return {
     ok: true,
     exists: Boolean(state),
-    filePath: CAMPAIGN_STATE_PATH,
+    filePath: campaignStatePath,
     state
   };
 }
@@ -1046,7 +1135,9 @@ function saveCampaignState(payload) {
     throw new Error("Invalid campaign state payload");
   }
 
-  const previousState = readJsonIfExists(CAMPAIGN_STATE_PATH, null);
+  ensureWritableDataBootstrap();
+  const campaignStatePath = getCampaignStatePath();
+  const previousState = readJsonIfExists(campaignStatePath, null);
   const nextState = {
     ...(previousState || {}),
     version: 1,
@@ -1063,12 +1154,12 @@ function saveCampaignState(payload) {
     }
   };
 
-  ensureDir(path.dirname(CAMPAIGN_STATE_PATH));
-  fs.writeFileSync(CAMPAIGN_STATE_PATH, JSON.stringify(nextState, null, 2));
+  ensureDir(path.dirname(campaignStatePath));
+  fs.writeFileSync(campaignStatePath, JSON.stringify(nextState, null, 2));
 
   return {
     ok: true,
-    filePath: CAMPAIGN_STATE_PATH,
+    filePath: campaignStatePath,
     state: nextState
   };
 }
@@ -1083,7 +1174,9 @@ function saveMapAnchor(payload) {
   }
 
   if (mapKey === "Terrain1" && typeof ui?.pixelX === "number" && typeof ui?.pixelY === "number") {
-    const rows = parseCsv(fs.readFileSync(HEARTLAND_PIXEL_LOCATIONS_PATH, "utf8"));
+    ensureWritableDataBootstrap();
+    const heartlandPath = getHeartlandPixelLocationsPath();
+    const rows = parseCsv(fs.readFileSync(heartlandPath, "utf8"));
     const row = rows.find((entry) => normalizeLocationKey(entry.name) === locationName);
 
     if (!row) {
@@ -1094,11 +1187,11 @@ function saveMapAnchor(payload) {
     row.pixel_y = String(Math.round(ui.pixelY));
     row.ui_left_percent = (Math.max(0, Math.min(100, ui.left))).toFixed(2);
     row.ui_top_percent = (Math.max(0, Math.min(100, ui.top))).toFixed(2);
-    writeCsv(HEARTLAND_PIXEL_LOCATIONS_PATH, rows);
+    writeCsv(heartlandPath, rows);
 
     return {
       ok: true,
-      customAnchorsPath: HEARTLAND_PIXEL_LOCATIONS_PATH,
+      customAnchorsPath: heartlandPath,
       mapKey,
       locationName,
       ui: {
@@ -1120,12 +1213,13 @@ function saveMapAnchor(payload) {
     top: Math.max(0, Math.min(100, ui.top))
   };
 
-  ensureDir(path.dirname(CUSTOM_ANCHORS_PATH));
-  fs.writeFileSync(CUSTOM_ANCHORS_PATH, JSON.stringify(anchors, null, 2));
+  const customAnchorsPath = getCustomAnchorsPath();
+  ensureDir(path.dirname(customAnchorsPath));
+  fs.writeFileSync(customAnchorsPath, JSON.stringify(anchors, null, 2));
 
   return {
     ok: true,
-    customAnchorsPath: CUSTOM_ANCHORS_PATH,
+    customAnchorsPath,
     mapKey,
     locationName,
     ui: anchors[mapKey][locationName]
@@ -1153,8 +1247,10 @@ function upsertConfiguredLocation(payload) {
   const left = ((pixelX / preset.pixelSize.width) * 100).toFixed(2);
   const top = ((pixelY / preset.pixelSize.height) * 100).toFixed(2);
 
-  const rows = safeExists(HEARTLAND_PIXEL_LOCATIONS_PATH)
-    ? applyHeaders(parseCsv(fs.readFileSync(HEARTLAND_PIXEL_LOCATIONS_PATH, "utf8")), HEARTLAND_LOCATION_HEADERS)
+  ensureWritableDataBootstrap();
+  const heartlandPath = getHeartlandPixelLocationsPath();
+  const rows = safeExists(heartlandPath)
+    ? applyHeaders(parseCsv(fs.readFileSync(heartlandPath, "utf8")), HEARTLAND_LOCATION_HEADERS)
     : [];
 
   const headers = HEARTLAND_LOCATION_HEADERS;
@@ -1177,11 +1273,11 @@ function upsertConfiguredLocation(payload) {
     rows.push(target);
   }
 
-  writeCsv(HEARTLAND_PIXEL_LOCATIONS_PATH, rows);
+  writeCsv(heartlandPath, rows);
 
   return {
     ok: true,
-    filePath: HEARTLAND_PIXEL_LOCATIONS_PATH,
+    filePath: heartlandPath,
     row: {
       mapKey,
       name,
@@ -1210,8 +1306,10 @@ function saveLocationOwnership(payload) {
     throw new Error(`Ownership saving is not implemented for ${mapKey} yet`);
   }
 
-  const rows = safeExists(HEARTLAND_PIXEL_LOCATIONS_PATH)
-    ? applyHeaders(parseCsv(fs.readFileSync(HEARTLAND_PIXEL_LOCATIONS_PATH, "utf8")), HEARTLAND_LOCATION_HEADERS)
+  ensureWritableDataBootstrap();
+  const heartlandPath = getHeartlandPixelLocationsPath();
+  const rows = safeExists(heartlandPath)
+    ? applyHeaders(parseCsv(fs.readFileSync(heartlandPath, "utf8")), HEARTLAND_LOCATION_HEADERS)
     : [];
 
   const existing = rows.find((row) => row.map_key === mapKey && normalizeLocationKey(row.name) === normalizeLocationKey(name));
@@ -1220,11 +1318,11 @@ function saveLocationOwnership(payload) {
   }
 
   existing.initial_owner = initialOwner;
-  writeCsv(HEARTLAND_PIXEL_LOCATIONS_PATH, rows);
+  writeCsv(heartlandPath, rows);
 
   return {
     ok: true,
-    filePath: HEARTLAND_PIXEL_LOCATIONS_PATH,
+    filePath: heartlandPath,
     row: {
       mapKey,
       name: existing.name,
@@ -1234,14 +1332,14 @@ function saveLocationOwnership(payload) {
 }
 
 module.exports = {
-  APP_SETTINGS_PATH,
-  CAMPAIGN_STATE_PATH,
-  CUSTOM_ANCHORS_PATH,
   DEFAULT_PATHS,
-  HEARTLAND_PIXEL_LOCATIONS_PATH,
   MAP_PRESETS,
   buildCatalog,
   exportCampaign,
+  getAppSettingsPath,
+  getCampaignStatePath,
+  getCustomAnchorsPath,
+  getHeartlandPixelLocationsPath,
   loadAppSettings,
   loadCampaignState,
   saveAppSettings,
