@@ -28,7 +28,16 @@
         <section class="panel panel--controls">
           <div class="section-header">
             <span>Campaign Settings</span>
-            <button class="ghost" id="reload-catalog">Reload Catalog</button>
+            <div class="workspace-toolbar__actions">
+              <button class="ghost" id="set-install-path">Set Install Path</button>
+              <button class="ghost" id="clear-install-path">Auto Detect</button>
+              <button class="ghost" id="reload-catalog">Reload Catalog</button>
+            </div>
+          </div>
+
+          <div class="workspace-card workspace-card--full">
+            <div class="workspace-card__label">Install Path</div>
+            <div class="workspace-card__text" id="install-path-readout">Auto-detecting Nuclear Option install...</div>
           </div>
 
           <div class="workspace-card workspace-card--full campaign-state-summary" id="campaign-state-summary">

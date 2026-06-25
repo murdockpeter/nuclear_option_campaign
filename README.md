@@ -24,6 +24,8 @@ The app is organized around three main workspaces:
 ## Current Feature Set
 
 - Scans the local `Nuclear Option` install and mission folders.
+- Auto-detects the local `Nuclear Option` install from Steam library manifests.
+- Supports a manual install-path override when the game is not in the detected Steam library.
 - Loads and saves persistent campaign state in `data/campaign_state.json`.
 - Stores named Heartland map locations in `data/heartland_pixel_locations.csv`.
 - Supports manual ownership assignment per named location.
@@ -238,6 +240,8 @@ npm start
 ```
 
 ## Default Paths
+
+The app now tries to auto-detect `Nuclear Option` from Steam app manifests across known Steam library folders before falling back to the traditional default install path.
 
 - Install path:
   `C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option`

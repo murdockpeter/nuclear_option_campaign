@@ -1,6 +1,7 @@
 const state = {
   catalog: null,
   campaignState: null,
+  appSettings: null,
   selectedMapKey: "Terrain1",
   activeView: "campaign",
   campaignImageReady: false,
@@ -116,6 +117,7 @@ const AIRCRAFT_TEMPLATE_BY_TYPE = {
 
 const els = {
   scanMeta: document.getElementById("scan-meta"),
+  installPathReadout: document.getElementById("install-path-readout"),
   catalogStats: document.getElementById("catalog-stats"),
   campaignStateSummary: document.getElementById("campaign-state-summary"),
   campaignLogistics: document.getElementById("campaign-logistics"),
@@ -211,6 +213,9 @@ const els = {
   configWorldZ: document.getElementById("config-world-z"),
   configNotes: document.getElementById("config-notes"),
   saveConfigLocation: document.getElementById("save-config-location")
+  ,
+  setInstallPath: document.getElementById("set-install-path"),
+  clearInstallPath: document.getElementById("clear-install-path")
 };
 
 function createOption(value, label) {
@@ -1406,10 +1411,22 @@ function updateWorkspaceSummary() {
 function updateScanMeta() {
   const pathInfo = state.catalog.paths;
   const installExists = state.catalog.install.exists ? "install found" : "install missing";
+  const source = pathInfo.installPathSource || "default";
   setText(
     els.scanMeta,
-    `${installExists} - missions: ${pathInfo.missionsPath} - scanned ${new Date(state.catalog.scannedAt).toLocaleString()}`
+    `${installExists} (${source}) - missions: ${pathInfo.missionsPath} - scanned ${new Date(state.catalog.scannedAt).toLocaleString()}`
   );
+
+  if (els.installPathReadout) {
+    const override = state.appSettings?.installPathOverride;
+    const detected = pathInfo.detectedInstallPath || pathInfo.installPath;
+    setText(
+      els.installPathReadout,
+      override
+        ? `Manual override: ${override}`
+        : `Auto-detected: ${detected}`
+    );
+  }
 }
 
 function getConfigViewport() {
@@ -3065,11 +3082,19 @@ function bindEvents() {
 
   document.getElementById("generate-campaign").addEventListener("click", exportCampaign);
   document.getElementById("reload-catalog").addEventListener("click", loadCatalog);
+  els.setInstallPath.addEventListener("click", chooseInstallPathOverride);
+  els.clearInstallPath.addEventListener("click", clearInstallPathOverride);
 }
 
 async function loadCatalog() {
   setText(els.scanMeta, "Scanning local install and mission folders...");
-  state.catalog = await window.nuclearOptionApi.loadCatalog();
+  state.catalog = await window.nuclearOptionApi.loadCatalog({
+    installPath: state.appSettings?.installPathOverride || undefined,
+    missionsPath: state.appSettings?.missionsPathOverride || undefined,
+    tempMissionsPath: state.appSettings?.tempMissionsPathOverride || undefined
+  });
+  const appSettingsResult = await window.nuclearOptionApi.loadAppSettings();
+  state.appSettings = appSettingsResult?.ok ? appSettingsResult.settings : null;
   const savedState = await window.nuclearOptionApi.loadCampaignState();
   state.campaignState = savedState?.ok && savedState.exists ? savedState.state : null;
   state.selectedMapKey =
@@ -3095,6 +3120,33 @@ async function loadCatalog() {
   updateScanMeta();
   renderCampaignView();
   renderAdvancedView();
+}
+
+async function chooseInstallPathOverride() {
+  const selectedPath = await window.nuclearOptionApi.chooseDirectory();
+  if (!selectedPath) {
+    return;
+  }
+
+  const result = await window.nuclearOptionApi.saveAppSettings({
+    ...(state.appSettings || {}),
+    installPathOverride: selectedPath
+  });
+  if (result?.ok) {
+    state.appSettings = result.settings;
+    await loadCatalog();
+  }
+}
+
+async function clearInstallPathOverride() {
+  const result = await window.nuclearOptionApi.saveAppSettings({
+    ...(state.appSettings || {}),
+    installPathOverride: ""
+  });
+  if (result?.ok) {
+    state.appSettings = result.settings;
+    await loadCatalog();
+  }
 }
 
 bindEvents();

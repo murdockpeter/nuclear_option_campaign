@@ -25,6 +25,8 @@ const DEFAULT_PATHS = {
 const CUSTOM_ANCHORS_PATH = path.join(process.cwd(), "data", "map-anchors.json");
 const HEARTLAND_PIXEL_LOCATIONS_PATH = path.join(process.cwd(), "data", "heartland_pixel_locations.csv");
 const CAMPAIGN_STATE_PATH = path.join(process.cwd(), "data", "campaign_state.json");
+const APP_SETTINGS_PATH = path.join(process.cwd(), "data", "app_settings.json");
+const NUCLEAR_OPTION_APP_ID = "2168680";
 const HEARTLAND_LOCATION_HEADERS = [
   "map_key",
   "name",
@@ -259,6 +261,73 @@ function safeExists(targetPath) {
   }
 }
 
+function normalizeWindowsPath(value) {
+  return (value || "").replace(/\\\\/g, "\\");
+}
+
+function parseAcfValue(text, key) {
+  const match = text.match(new RegExp(`"${key}"\\s+"([^"]+)"`));
+  return match ? normalizeWindowsPath(match[1]) : null;
+}
+
+function candidateSteamRoots() {
+  return [
+    "C:\\Program Files (x86)\\Steam",
+    "C:\\Program Files\\Steam"
+  ];
+}
+
+function discoverSteamLibraryPaths() {
+  const libraries = new Set();
+
+  for (const steamRoot of candidateSteamRoots()) {
+    const libraryFile = path.join(steamRoot, "steamapps", "libraryfolders.vdf");
+    if (!safeExists(libraryFile)) {
+      continue;
+    }
+
+    libraries.add(steamRoot);
+
+    try {
+      const contents = fs.readFileSync(libraryFile, "utf8");
+      const matches = contents.matchAll(/"path"\s+"([^"]+)"/g);
+      for (const match of matches) {
+        libraries.add(normalizeWindowsPath(match[1]));
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return Array.from(libraries);
+}
+
+function discoverNuclearOptionInstallPath() {
+  for (const libraryRoot of discoverSteamLibraryPaths()) {
+    const manifestPath = path.join(libraryRoot, "steamapps", `appmanifest_${NUCLEAR_OPTION_APP_ID}.acf`);
+    if (!safeExists(manifestPath)) {
+      continue;
+    }
+
+    try {
+      const manifest = fs.readFileSync(manifestPath, "utf8");
+      const installDir = parseAcfValue(manifest, "installdir");
+      if (!installDir) {
+        continue;
+      }
+
+      const installPath = path.join(libraryRoot, "steamapps", "common", installDir);
+      if (safeExists(installPath)) {
+        return installPath;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
 function readJsonIfExists(filePath, fallback = null) {
   if (!safeExists(filePath)) {
     return fallback;
@@ -269,6 +338,66 @@ function readJsonIfExists(filePath, fallback = null) {
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function loadAppSettings() {
+  return readJsonIfExists(APP_SETTINGS_PATH, {
+    installPathOverride: "",
+    missionsPathOverride: "",
+    tempMissionsPathOverride: ""
+  });
+}
+
+function saveAppSettings(settings = {}) {
+  const nextSettings = {
+    installPathOverride: settings.installPathOverride || "",
+    missionsPathOverride: settings.missionsPathOverride || "",
+    tempMissionsPathOverride: settings.tempMissionsPathOverride || ""
+  };
+
+  ensureDir(path.dirname(APP_SETTINGS_PATH));
+  fs.writeFileSync(APP_SETTINGS_PATH, JSON.stringify(nextSettings, null, 2));
+  return {
+    ok: true,
+    filePath: APP_SETTINGS_PATH,
+    settings: nextSettings
+  };
+}
+
+function resolveCatalogPaths(requestedPaths = {}) {
+  const savedSettings = loadAppSettings();
+  const detectedInstallPath = discoverNuclearOptionInstallPath();
+
+  const installPath =
+    requestedPaths.installPath ||
+    savedSettings.installPathOverride ||
+    detectedInstallPath ||
+    DEFAULT_PATHS.installPath;
+
+  const missionsPath =
+    requestedPaths.missionsPath ||
+    savedSettings.missionsPathOverride ||
+    DEFAULT_PATHS.missionsPath;
+
+  const tempMissionsPath =
+    requestedPaths.tempMissionsPath ||
+    savedSettings.tempMissionsPathOverride ||
+    DEFAULT_PATHS.tempMissionsPath;
+
+  return {
+    installPath,
+    missionsPath,
+    tempMissionsPath,
+    detectedInstallPath,
+    installPathSource: requestedPaths.installPath
+      ? "request"
+      : savedSettings.installPathOverride
+        ? "saved-override"
+        : detectedInstallPath
+          ? "steam-detect"
+          : "default",
+    appSettings: savedSettings
+  };
 }
 
 function listMissionFolders(basePath) {
@@ -440,10 +569,11 @@ function discoverInstallSummary(installPath) {
 }
 
 function buildCatalog(paths = DEFAULT_PATHS) {
+  const resolvedPaths = resolveCatalogPaths(paths);
   const customAnchors = loadCustomAnchors();
   const configuredLocationsByMap = loadConfiguredLocationsByMap();
-  const userMissions = listMissionFolders(paths.missionsPath).map(missionDescriptor);
-  const tempMissions = listMissionFolders(paths.tempMissionsPath).map(missionDescriptor);
+  const userMissions = listMissionFolders(resolvedPaths.missionsPath).map(missionDescriptor);
+  const tempMissions = listMissionFolders(resolvedPaths.tempMissionsPath).map(missionDescriptor);
   const missionMaps = new Map();
 
   for (const entry of [...userMissions, ...tempMissions]) {
@@ -489,8 +619,15 @@ function buildCatalog(paths = DEFAULT_PATHS) {
 
   return {
     scannedAt: new Date().toISOString(),
-    paths,
-    install: discoverInstallSummary(paths.installPath),
+    paths: {
+      installPath: resolvedPaths.installPath,
+      missionsPath: resolvedPaths.missionsPath,
+      tempMissionsPath: resolvedPaths.tempMissionsPath,
+      detectedInstallPath: resolvedPaths.detectedInstallPath,
+      installPathSource: resolvedPaths.installPathSource
+    },
+    appSettings: resolvedPaths.appSettings,
+    install: discoverInstallSummary(resolvedPaths.installPath),
     userMissions,
     tempMissions,
     maps: Array.from(missionMaps.values()).map((map) => ({
@@ -1097,6 +1234,7 @@ function saveLocationOwnership(payload) {
 }
 
 module.exports = {
+  APP_SETTINGS_PATH,
   CAMPAIGN_STATE_PATH,
   CUSTOM_ANCHORS_PATH,
   DEFAULT_PATHS,
@@ -1104,7 +1242,9 @@ module.exports = {
   MAP_PRESETS,
   buildCatalog,
   exportCampaign,
+  loadAppSettings,
   loadCampaignState,
+  saveAppSettings,
   saveMapAnchor,
   saveCampaignState,
   saveLocationOwnership,

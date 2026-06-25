@@ -3,8 +3,10 @@ const path = require("path");
 const {
   buildCatalog,
   exportCampaign,
+  loadAppSettings,
   loadCampaignState,
   saveMapAnchor,
+  saveAppSettings,
   saveCampaignState,
   saveLocationOwnership,
   upsertConfiguredLocation,
@@ -42,6 +44,17 @@ app.whenReady().then(() => {
 
   ipcMain.handle("campaignState:load", async () => {
     return loadCampaignState();
+  });
+
+  ipcMain.handle("appSettings:load", async () => {
+    return {
+      ok: true,
+      settings: loadAppSettings()
+    };
+  });
+
+  ipcMain.handle("appSettings:save", async (_event, payload) => {
+    return saveAppSettings(payload);
   });
 
   ipcMain.handle("campaignState:save", async (_event, payload) => {

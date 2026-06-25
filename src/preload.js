@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("nuclearOptionApi", {
   loadCatalog: (paths) => ipcRenderer.invoke("catalog:load", paths),
   exportCampaign: (payload) => ipcRenderer.invoke("campaign:export", payload),
+  loadAppSettings: () => ipcRenderer.invoke("appSettings:load"),
+  saveAppSettings: (payload) => ipcRenderer.invoke("appSettings:save", payload),
   loadCampaignState: () => ipcRenderer.invoke("campaignState:load"),
   saveCampaignState: (payload) => ipcRenderer.invoke("campaignState:save", payload),
   saveAnchor: (payload) => ipcRenderer.invoke("anchors:save", payload),
