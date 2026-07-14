@@ -6,6 +6,9 @@ const state = {
   activeView: "campaign",
   campaignImageReady: false,
   advancedImageReady: false,
+  customObjectivePoint: null,
+  objectivePickMode: false,
+  activeTemplateId: "",
   configPoint: null,
   configImageReady: false,
   configZoom: 1
@@ -20,6 +23,7 @@ const HIDDEN_LOCATION_NAMES = new Set([
 
 const OBJECTIVE_INTENSITY_LABELS = ["Low", "Medium", "High", "Very High"];
 const OBJECTIVE_FORCE_COUNTS = [4, 8, 12, 18];
+const DEFAULT_OBJECTIVE_COMPLETION_PERCENT = 50;
 const BASELINE_DEFENDER_COUNT = 3;
 const AUTOLOAD_DELAY_MS = 350;
 const TURN_FUNDS_PER_OWNED_LOCATION = 25000;
@@ -55,6 +59,28 @@ const AIR_PATROL_TYPES = {
   helicopters: ["AttackHelo1", "UtilityHelo1"],
   fixedWing: ["SmallFighter1", "Multirole1", "CAS1"]
 };
+const TARGET_TEMPLATE_ELEMENT_TYPES = [
+  { value: "RadarSAM1", label: "Radar SAM", kind: "vehicle" },
+  { value: "SAMTrailer1", label: "SAM Trailer", kind: "vehicle" },
+  { value: "SPAAG1", label: "AAA / SPAAG", kind: "vehicle" },
+  { value: "Truck2-FT", label: "Artillery Truck", kind: "vehicle" },
+  { value: "LightTruck1_AT", label: "AT Truck", kind: "vehicle" },
+  { value: "MBT1", label: "Main Battle Tank", kind: "vehicle" },
+  { value: "AFV8_IFV", label: "IFV", kind: "vehicle" },
+  { value: "AFV8_APC", label: "APC", kind: "vehicle" },
+  { value: "factory_large", label: "Large Factory", kind: "building" },
+  { value: "factory_tall", label: "Tall Factory", kind: "building" }
+];
+const TIME_OF_DAY_PRESETS = [
+  { value: 4.5, label: "Pre-Dawn", icon: "NIGHT", lighting: "Very dark", visibility: "Low visibility with a cool blue cast." },
+  { value: 6.5, label: "Sunrise", icon: "DAWN", lighting: "Low-angle light", visibility: "Long shadows and improving visibility." },
+  { value: 9, label: "Morning", icon: "DAY", lighting: "Bright morning", visibility: "Broad daylight with strong visibility." },
+  { value: 12, label: "Midday", icon: "SUN", lighting: "High sun", visibility: "Maximum visibility and harsh top lighting." },
+  { value: 15.5, label: "Afternoon", icon: "DAY", lighting: "Warm daylight", visibility: "Clear lines of sight with softer shadows." },
+  { value: 18.5, label: "Sunset", icon: "DUSK", lighting: "Golden hour", visibility: "Warm light and growing shadow bands." },
+  { value: 21, label: "Evening", icon: "DUSK", lighting: "Civil twilight", visibility: "Dim visual contrast and fading horizon detail." },
+  { value: 23.5, label: "Late Night", icon: "MOON", lighting: "Night operations", visibility: "Low ambient light and reduced target pickup." }
+];
 const AIRCRAFT_TEMPLATE_BY_TYPE = {
   AttackHelo1: {
     loadout: { weaponSelections: [1, 1, 3, 2] },
@@ -129,6 +155,11 @@ const els = {
   enemyFaction: document.getElementById("enemy-faction"),
   objectiveTarget: document.getElementById("objective-target"),
   objectiveUnitProfile: document.getElementById("objective-unit-profile"),
+  objectiveTemplateSelect: document.getElementById("objective-template-select"),
+  objectiveCompletionPercent: document.getElementById("objective-completion-percent"),
+  pickObjectiveOnMap: document.getElementById("pick-objective-on-map"),
+  clearCustomObjective: document.getElementById("clear-custom-objective"),
+  customObjectiveReadout: document.getElementById("custom-objective-readout"),
   objectiveIntensity: document.getElementById("objective-intensity"),
   objectiveIntensityValue: document.getElementById("objective-intensity-value"),
   openAdvancedTargets: document.getElementById("open-advanced-targets"),
@@ -145,6 +176,7 @@ const els = {
   startingRank: document.getElementById("starting-rank"),
   startingCash: document.getElementById("starting-cash"),
   timeOfDay: document.getElementById("time-of-day"),
+  timeOfDayReadout: document.getElementById("time-of-day-readout"),
   weatherIntensity: document.getElementById("weather-intensity"),
   allowRespawn: document.getElementById("allow-respawn"),
   enableSam: document.getElementById("enable-sam"),
@@ -153,9 +185,11 @@ const els = {
   enableGround: document.getElementById("enable-ground"),
   enableShips: document.getElementById("enable-ships"),
   showCampaignView: document.getElementById("show-campaign-view"),
+  showTrackingView: document.getElementById("show-tracking-view"),
   showConfigView: document.getElementById("show-config-view"),
   showAdvancedView: document.getElementById("show-advanced-view"),
   campaignView: document.getElementById("campaign-view"),
+  trackingView: document.getElementById("tracking-view"),
   campaignStage: document.getElementById("campaign-stage"),
   campaignTopScroll: document.getElementById("campaign-top-scroll"),
   campaignTopScrollTrack: document.getElementById("campaign-top-scroll-track"),
@@ -174,6 +208,7 @@ const els = {
   advancedSummaryObjective: document.getElementById("advanced-summary-objective"),
   advancedSummaryPackage: document.getElementById("advanced-summary-package"),
   advancedSummaryThreats: document.getElementById("advanced-summary-threats"),
+  advancedEnvironmentSummary: document.getElementById("advanced-environment-summary"),
   advancedObjectiveSamSites: document.getElementById("advanced-objective-sam-sites"),
   advancedObjectiveArtillerySites: document.getElementById("advanced-objective-artillery-sites"),
   advancedObjectiveFactoryBuildings: document.getElementById("advanced-objective-factory-buildings"),
@@ -206,13 +241,25 @@ const els = {
   configZoom: document.getElementById("config-zoom"),
   configReadout: document.getElementById("config-readout"),
   configExistingLocation: document.getElementById("config-existing-location"),
+  configExistingTemplate: document.getElementById("config-existing-template"),
   configLocationName: document.getElementById("config-location-name"),
   configPixelX: document.getElementById("config-pixel-x"),
   configPixelY: document.getElementById("config-pixel-y"),
   configWorldX: document.getElementById("config-world-x"),
   configWorldZ: document.getElementById("config-world-z"),
   configNotes: document.getElementById("config-notes"),
-  saveConfigLocation: document.getElementById("save-config-location")
+  saveConfigLocation: document.getElementById("save-config-location"),
+  configTemplateName: document.getElementById("config-template-name"),
+  configTemplateElementType: document.getElementById("config-template-element-type"),
+  configTemplateElementHeading: document.getElementById("config-template-element-heading"),
+  configTemplateOffsetX: document.getElementById("config-template-offset-x"),
+  configTemplateOffsetZ: document.getElementById("config-template-offset-z"),
+  addTemplateElement: document.getElementById("add-template-element"),
+  importTargetTemplate: document.getElementById("import-target-template"),
+  importTargetTemplateFile: document.getElementById("import-target-template-file"),
+  saveTargetTemplate: document.getElementById("save-target-template"),
+  deleteTargetTemplate: document.getElementById("delete-target-template"),
+  configTemplateElements: document.getElementById("config-template-elements")
   ,
   setInstallPath: document.getElementById("set-install-path"),
   clearInstallPath: document.getElementById("clear-install-path")
@@ -273,6 +320,119 @@ function clampNumber(value, min, max, fallback) {
     return fallback;
   }
   return Math.max(min, Math.min(max, numeric));
+}
+
+function findTimePreset(value) {
+  const numeric = Number(value);
+  return (
+    TIME_OF_DAY_PRESETS.find((preset) => Math.abs(Number(preset.value) - numeric) < 0.01) ||
+    TIME_OF_DAY_PRESETS[2]
+  );
+}
+
+function describeEnvironment(timeValue = els.timeOfDay?.value, weatherValue = els.weatherIntensity?.value) {
+  const timePreset = findTimePreset(timeValue);
+  const weather = clampNumber(weatherValue, 0, 1, 0.2);
+  let weatherBand = "Clear";
+  let visibilityNote = "Clean sight lines and strong visual target acquisition.";
+
+  if (weather >= 0.75) {
+    weatherBand = "Stormy";
+    visibilityNote = "Heavy weather and broken visibility around the battlespace.";
+  } else if (weather >= 0.45) {
+    weatherBand = "Overcast";
+    visibilityNote = "Flattened lighting and softer long-range contrast.";
+  } else if (weather >= 0.2) {
+    weatherBand = "Hazy";
+    visibilityNote = "Slight atmospheric haze with mild range washout.";
+  }
+
+  return {
+    ...timePreset,
+    weatherBand,
+    weatherPercent: Math.round(weather * 100),
+    description: `${timePreset.icon} ${timePreset.label} | ${timePreset.lighting} | ${weatherBand} ${Math.round(weather * 100)}%`,
+    visibility: `${timePreset.visibility} ${visibilityNote}`
+  };
+}
+
+function renderEnvironmentSummary() {
+  const summary = describeEnvironment();
+  if (els.timeOfDayReadout) {
+    setText(els.timeOfDayReadout, `${summary.description}. ${summary.visibility}`);
+  }
+  if (els.advancedEnvironmentSummary) {
+    els.advancedEnvironmentSummary.innerHTML = `
+      <span class="env-pill env-pill--time">${summary.icon}</span>
+      <span class="env-pill env-pill--weather">${summary.weatherBand}</span>
+      ${summary.lighting}. ${summary.visibility}
+    `;
+  }
+}
+
+function pixelToWorld(map, pixelX, pixelY) {
+  if (!map?.bounds || !map?.pixelSize) {
+    return { x: null, z: null };
+  }
+
+  const width = Number(map.pixelSize.width || 1);
+  const height = Number(map.pixelSize.height || 1);
+  const xRatio = Number(pixelX) / width;
+  const yRatio = Number(pixelY) / height;
+  return {
+    x: map.bounds.minX + (map.bounds.maxX - map.bounds.minX) * xRatio,
+    z: map.bounds.maxZ - (map.bounds.maxZ - map.bounds.minZ) * yRatio
+  };
+}
+
+function worldToPixel(map, worldX, worldZ) {
+  if (!map?.bounds || !map?.pixelSize) {
+    return { pixelX: null, pixelY: null };
+  }
+
+  const xRatio = (Number(worldX) - map.bounds.minX) / (map.bounds.maxX - map.bounds.minX);
+  const zRatio = (map.bounds.maxZ - Number(worldZ)) / (map.bounds.maxZ - map.bounds.minZ);
+  return {
+    pixelX: xRatio * Number(map.pixelSize.width || 1),
+    pixelY: zRatio * Number(map.pixelSize.height || 1)
+  };
+}
+
+function ensureObjectivePixelCoordinates(map, location) {
+  if (!location) {
+    return location;
+  }
+
+  if (Number.isFinite(Number(location.pixelX)) && Number.isFinite(Number(location.pixelY))) {
+    return location;
+  }
+
+  if (Number.isFinite(Number(location.gameWorldX)) && Number.isFinite(Number(location.gameWorldZ))) {
+    const pixel = worldToPixel(map, Number(location.gameWorldX), Number(location.gameWorldZ));
+    return {
+      ...location,
+      pixelX: pixel.pixelX,
+      pixelY: pixel.pixelY
+    };
+  }
+
+  return location;
+}
+
+function getTargetTemplatesForMap(mapKey = state.selectedMapKey) {
+  return state.campaignState?.targetTemplatesByMap?.[mapKey] || [];
+}
+
+function getActiveTargetTemplate() {
+  const templateId = els.objectiveTemplateSelect?.value;
+  if (!templateId || templateId === "__procedural__") {
+    return null;
+  }
+  return getTargetTemplatesForMap().find((entry) => entry.id === templateId) || null;
+}
+
+function currentObjectiveCompletionPercent() {
+  return clampNumber(els.objectiveCompletionPercent?.value, 25, 100, DEFAULT_OBJECTIVE_COMPLETION_PERCENT);
 }
 
 function getAdvancedThreatSettings() {
@@ -372,6 +532,424 @@ function getPersistedFactionState(factionName) {
   };
 }
 
+function ensureCampaignStateContainer() {
+  if (!state.campaignState) {
+    state.campaignState = {
+      version: 1,
+      mapKey: state.selectedMapKey,
+      parameters: {},
+      targetTemplatesByMap: {}
+    };
+  }
+  if (!state.campaignState.parameters) {
+    state.campaignState.parameters = {};
+  }
+  if (!state.campaignState.targetTemplatesByMap) {
+    state.campaignState.targetTemplatesByMap = {};
+  }
+}
+
+function createTemplateId(name) {
+  return `template_${sanitizeIdFragment(name)}_${Date.now()}`;
+}
+
+function currentEditingTemplate() {
+  return getTargetTemplatesForMap().find((entry) => entry.id === state.activeTemplateId) || null;
+}
+
+function extractFileStem(fileName = "") {
+  return String(fileName || "").replace(/\.[^/.]+$/, "").trim() || "Imported Template";
+}
+
+function headingFromRotation(rotation = {}) {
+  const y = Number(rotation?.y || 0);
+  const w = Number(rotation?.w || 1);
+  const radians = 2 * Math.atan2(y, w);
+  const degrees = (radians * 180) / Math.PI;
+  return ((Math.round(degrees) % 360) + 360) % 360;
+}
+
+function findTemplateElementMeta(type) {
+  return TARGET_TEMPLATE_ELEMENT_TYPES.find((entry) => entry.value === type) || null;
+}
+
+function normalizeImportedTemplateElements(elements = []) {
+  return elements
+    .map((element, index) => {
+      const meta = findTemplateElementMeta(element.type);
+      if (!meta) {
+        return null;
+      }
+
+      return {
+        id: element.id || `${sanitizeIdFragment(element.type)}_${Date.now()}_${index + 1}`,
+        type: meta.value,
+        kind: meta.kind,
+        offsetX: Math.round(Number(element.offsetX || 0)),
+        offsetZ: Math.round(Number(element.offsetZ || 0)),
+        heading: clampNumber(element.heading, 0, 359, 0)
+      };
+    })
+    .filter(Boolean);
+}
+
+function collectScenarioTemplateCandidates(payload = {}) {
+  const candidates = [];
+  const objectiveTargetNames = new Set();
+  const objectiveGroups = Array.isArray(payload.objectives) ? payload.objectives : [];
+
+  objectiveGroups.forEach((objective) => {
+    if (Array.isArray(objective?.targetUnits)) {
+      objective.targetUnits.forEach((entry) => {
+        if (typeof entry === "string" && entry.trim()) {
+          objectiveTargetNames.add(entry.trim());
+        } else if (entry && typeof entry === "object") {
+          const named = entry.UniqueName || entry.uniqueName || entry.unitId || entry.id || entry.name;
+          if (named) {
+            objectiveTargetNames.add(String(named).trim());
+          }
+        }
+      });
+    }
+  });
+
+  const addEntries = (entries, fallbackKind) => {
+    if (!Array.isArray(entries)) {
+      return;
+    }
+
+    entries.forEach((entry, index) => {
+      const type = entry?.type || entry?.Type;
+      const meta = findTemplateElementMeta(type);
+      if (!meta) {
+        return;
+      }
+
+      const position =
+        entry?.globalPosition ||
+        entry?.position ||
+        entry?.Position ||
+        null;
+      if (!position || !Number.isFinite(Number(position.x)) || !Number.isFinite(Number(position.z))) {
+        return;
+      }
+
+      const uniqueName =
+        entry?.UniqueName ||
+        entry?.uniqueName ||
+        entry?.unitId ||
+        entry?.id ||
+        `${type}_${index + 1}`;
+
+      candidates.push({
+        sourceName: String(uniqueName),
+        type: meta.value,
+        kind: meta.kind || fallbackKind,
+        x: Number(position.x),
+        z: Number(position.z),
+        heading: headingFromRotation(entry?.rotation || entry?.Rotation || {}),
+        isObjectiveTagged: objectiveTargetNames.has(String(uniqueName)),
+        isObjectiveNamed: /^objective_/i.test(String(uniqueName))
+      });
+    });
+  };
+
+  if (payload?.orderOfBattle) {
+    addEntries(payload.orderOfBattle.staticDefense, "vehicle");
+    addEntries(payload.orderOfBattle.buildings, "building");
+  }
+
+  if (candidates.length === 0) {
+    addEntries(payload.vehicles, "vehicle");
+    addEntries(payload.buildings, "building");
+  }
+
+  return candidates;
+}
+
+function resolveScenarioObjectiveAnchor(payload = {}, candidates = []) {
+  if (Number.isFinite(Number(payload?.objective?.gameWorldX)) && Number.isFinite(Number(payload?.objective?.gameWorldZ))) {
+    return {
+      x: Number(payload.objective.gameWorldX),
+      z: Number(payload.objective.gameWorldZ),
+      label: payload.objective.name || "Imported Objective"
+    };
+  }
+
+  const positionedObjective = (Array.isArray(payload.objectives) ? payload.objectives : []).find((objective) => {
+    return Number.isFinite(Number(objective?.position?.x)) && Number.isFinite(Number(objective?.position?.z));
+  });
+  if (positionedObjective) {
+    return {
+      x: Number(positionedObjective.position.x),
+      z: Number(positionedObjective.position.z),
+      label: positionedObjective.objectiveName || "Imported Objective"
+    };
+  }
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  const focusedCandidates = candidates.filter((entry) => entry.isObjectiveTagged || entry.isObjectiveNamed);
+  const source = focusedCandidates.length ? focusedCandidates : candidates;
+  const x = source.reduce((sum, entry) => sum + Number(entry.x), 0) / source.length;
+  const z = source.reduce((sum, entry) => sum + Number(entry.z), 0) / source.length;
+  return {
+    x,
+    z,
+    label: "Imported Layout Center"
+  };
+}
+
+function importTemplateFromScenarioPayload(payload, fileStem) {
+  const candidates = collectScenarioTemplateCandidates(payload);
+  if (!candidates.length) {
+    throw new Error("No supported target objects were found in that scenario file.");
+  }
+
+  const anchor = resolveScenarioObjectiveAnchor(payload, candidates);
+  const distanceToAnchor = (entry) => {
+    if (!anchor) {
+      return Number.POSITIVE_INFINITY;
+    }
+    const dx = Number(entry.x) - Number(anchor.x);
+    const dz = Number(entry.z) - Number(anchor.z);
+    return Math.sqrt(dx * dx + dz * dz);
+  };
+
+  let selected = candidates.filter((entry) => entry.isObjectiveTagged || entry.isObjectiveNamed);
+  if (!selected.length && anchor) {
+    selected = candidates.filter((entry) => distanceToAnchor(entry) <= 2000);
+  }
+  if (!selected.length && anchor) {
+    selected = candidates.filter((entry) => distanceToAnchor(entry) <= 3500);
+  }
+  if (!selected.length) {
+    selected = candidates;
+  }
+
+  const referenceX = anchor ? Number(anchor.x) : selected.reduce((sum, entry) => sum + Number(entry.x), 0) / selected.length;
+  const referenceZ = anchor ? Number(anchor.z) : selected.reduce((sum, entry) => sum + Number(entry.z), 0) / selected.length;
+
+  return {
+    name: payload?.targetTemplate?.name || payload?.objective?.name || anchor?.label || fileStem,
+    elements: normalizeImportedTemplateElements(
+      selected.map((entry) => ({
+        type: entry.type,
+        offsetX: Number(entry.x) - referenceX,
+        offsetZ: Number(entry.z) - referenceZ,
+        heading: entry.heading
+      }))
+    )
+  };
+}
+
+function parseImportedTemplatePayload(fileName, text) {
+  let payload;
+  try {
+    payload = JSON.parse(text);
+  } catch (error) {
+    throw new Error("Template import expects a valid JSON file.");
+  }
+
+  const fileStem = extractFileStem(fileName);
+
+  if (Array.isArray(payload?.targetTemplate?.elements)) {
+    return {
+      name: payload.targetTemplate.name || fileStem,
+      elements: normalizeImportedTemplateElements(payload.targetTemplate.elements)
+    };
+  }
+
+  if (Array.isArray(payload?.elements)) {
+    return {
+      name: payload.name || fileStem,
+      elements: normalizeImportedTemplateElements(payload.elements)
+    };
+  }
+
+  if (Array.isArray(payload)) {
+    return {
+      name: fileStem,
+      elements: normalizeImportedTemplateElements(payload)
+    };
+  }
+
+  if (
+    payload?.orderOfBattle ||
+    Array.isArray(payload?.vehicles) ||
+    Array.isArray(payload?.buildings) ||
+    Array.isArray(payload?.objectives)
+  ) {
+    return importTemplateFromScenarioPayload(payload, fileStem);
+  }
+
+  throw new Error("Unrecognized template format. Use a saved template JSON or a Nuclear Option scenario JSON.");
+}
+
+function resetTemplateEditor() {
+  state.activeTemplateId = "";
+  if (els.configExistingTemplate) {
+    els.configExistingTemplate.value = "";
+  }
+  if (els.configTemplateName) {
+    els.configTemplateName.value = "";
+  }
+  if (els.configTemplateElementType) {
+    els.configTemplateElementType.value = TARGET_TEMPLATE_ELEMENT_TYPES[0].value;
+  }
+  if (els.configTemplateElementHeading) {
+    els.configTemplateElementHeading.value = "0";
+  }
+  if (els.configTemplateOffsetX) {
+    els.configTemplateOffsetX.value = "0";
+  }
+  if (els.configTemplateOffsetZ) {
+    els.configTemplateOffsetZ.value = "0";
+  }
+}
+
+function renderTargetTemplateOptions() {
+  if (!els.objectiveTemplateSelect || !els.configExistingTemplate) {
+    return;
+  }
+
+  const templates = getTargetTemplatesForMap().slice().sort((a, b) => a.name.localeCompare(b.name));
+  const currentValue = els.objectiveTemplateSelect.value;
+  els.objectiveTemplateSelect.innerHTML = "";
+  els.objectiveTemplateSelect.appendChild(createOption("__procedural__", "Procedural Package"));
+  templates.forEach((template) => {
+    els.objectiveTemplateSelect.appendChild(createOption(template.id, template.name));
+  });
+  els.objectiveTemplateSelect.value = templates.some((entry) => entry.id === currentValue) ? currentValue : "__procedural__";
+
+  const currentTemplateValue = els.configExistingTemplate.value;
+  els.configExistingTemplate.innerHTML = "";
+  els.configExistingTemplate.appendChild(createOption("", "New Template"));
+  templates.forEach((template) => {
+    els.configExistingTemplate.appendChild(createOption(template.id, template.name));
+  });
+  els.configExistingTemplate.value = templates.some((entry) => entry.id === currentTemplateValue) ? currentTemplateValue : (state.activeTemplateId || "");
+
+  if (!els.configTemplateElementType.options.length) {
+    TARGET_TEMPLATE_ELEMENT_TYPES.forEach((type) => {
+      els.configTemplateElementType.appendChild(createOption(type.value, type.label));
+    });
+  }
+}
+
+function renderTemplateElements() {
+  if (!els.configTemplateElements) {
+    return;
+  }
+
+  const template = currentEditingTemplate();
+  if (!template) {
+    els.configTemplateElements.innerHTML = `<div class="mission-card"><div class="mission-card__meta">Create or load a template, then add relative target elements here.</div></div>`;
+    return;
+  }
+
+  els.configTemplateElements.innerHTML = template.elements.length
+    ? template.elements.map((element, index) => {
+        const typeMeta = TARGET_TEMPLATE_ELEMENT_TYPES.find((entry) => entry.value === element.type);
+        return `
+          <div class="mission-card">
+            <div class="mission-card__title">${typeMeta?.label || element.type}</div>
+            <div class="mission-card__meta">Offset X ${element.offsetX}, Z ${element.offsetZ} | Heading ${element.heading}&deg; | ${element.kind}</div>
+            <div class="inline-actions">
+              <button class="ghost" data-template-remove-index="${index}">Remove</button>
+            </div>
+          </div>
+        `;
+      }).join("")
+    : `<div class="mission-card"><div class="mission-card__meta">No elements yet. Add vehicles or factory objects with relative offsets.</div></div>`;
+}
+
+function loadTemplateIntoEditor(templateId) {
+  state.activeTemplateId = templateId || "";
+  const template = currentEditingTemplate();
+  if (!template) {
+    resetTemplateEditor();
+    renderTemplateElements();
+    return;
+  }
+
+  els.configExistingTemplate.value = template.id;
+  els.configTemplateName.value = template.name;
+  renderTemplateElements();
+}
+
+function getObjectiveSelection(map = mapByKey(state.selectedMapKey)) {
+  if (els.objectiveTarget?.value === "__custom__" && state.customObjectivePoint) {
+    return ensureObjectivePixelCoordinates(map, {
+      id: "__custom__",
+      name: state.customObjectivePoint.name || "Custom Target Area",
+      pixelX: state.customObjectivePoint.pixelX,
+      pixelY: state.customObjectivePoint.pixelY,
+      gameWorldX: state.customObjectivePoint.gameWorldX,
+      gameWorldY: state.customObjectivePoint.gameWorldY ?? 0,
+      gameWorldZ: state.customObjectivePoint.gameWorldZ,
+      initialOwner: state.customObjectivePoint.owner || els.enemyFaction.value,
+      notes: state.customObjectivePoint.notes || "Map-picked objective point"
+    });
+  }
+
+  return ensureObjectivePixelCoordinates(map, resolveGameLocation(map, els.objectiveTarget.value));
+}
+
+function setCustomObjectivePointFromPixel(pixelX, pixelY) {
+  const map = mapByKey(state.selectedMapKey);
+  if (!map) {
+    return;
+  }
+
+  const world = pixelToWorld(map, pixelX, pixelY);
+  const nearestLocation = getOperationalLocations(map)
+    .filter((entry) => Number.isFinite(Number(entry.gameWorldX)) && Number.isFinite(Number(entry.gameWorldZ)))
+    .sort((left, right) => {
+      const leftDx = Number(left.gameWorldX) - Number(world.x);
+      const leftDz = Number(left.gameWorldZ) - Number(world.z);
+      const rightDx = Number(right.gameWorldX) - Number(world.x);
+      const rightDz = Number(right.gameWorldZ) - Number(world.z);
+      return Math.sqrt(leftDx * leftDx + leftDz * leftDz) - Math.sqrt(rightDx * rightDx + rightDz * rightDz);
+    })[0];
+  state.customObjectivePoint = {
+    name: `Custom Target Area`,
+    pixelX: Math.round(pixelX),
+    pixelY: Math.round(pixelY),
+    gameWorldX: Math.round(world.x),
+    gameWorldY: Number(nearestLocation?.gameWorldY ?? 0),
+    gameWorldZ: Math.round(world.z),
+    owner: els.enemyFaction.value,
+    notes: "Map-picked objective point"
+  };
+  state.objectivePickMode = false;
+  renderObjectiveOptions();
+  els.objectiveTarget.value = "__custom__";
+  renderCustomObjectiveReadout();
+  updateWorkspaceSummary();
+  renderCampaignMarkers();
+  renderAdvancedSummary();
+  renderAdvancedMarkers();
+}
+
+function renderCustomObjectiveReadout() {
+  if (!els.customObjectiveReadout) {
+    return;
+  }
+
+  if (els.objectiveTarget?.value === "__custom__" && state.customObjectivePoint) {
+    setText(
+      els.customObjectiveReadout,
+      `Custom target at pixel ${state.customObjectivePoint.pixelX}, ${state.customObjectivePoint.pixelY} | X ${state.customObjectivePoint.gameWorldX}, Z ${state.customObjectivePoint.gameWorldZ}`
+    );
+    return;
+  }
+
+  setText(els.customObjectiveReadout, state.objectivePickMode ? "Click the map to place the objective bullseye." : "Using the selected named location.");
+}
+
 function configuredLocationsForMap(mapKey) {
   return (state.catalog?.configuredLocationsByMap?.[mapKey] || []).filter((entry) => {
     return !HIDDEN_LOCATION_NAMES.has(entry.name);
@@ -409,14 +987,18 @@ function getOperationalLocations(map = mapByKey(state.selectedMapKey)) {
     return configured
       .map((entry) => {
         const persisted = getPersistedLocationState(entry.name);
+        const derivedWorld =
+          entry.gameWorldX == null || entry.gameWorldZ == null
+            ? pixelToWorld(map, Number(entry.pixelX || 0), Number(entry.pixelY || 0))
+            : { x: entry.gameWorldX, z: entry.gameWorldZ };
         return {
           id: entry.name,
           name: entry.name,
           pixelX: entry.pixelX,
           pixelY: entry.pixelY,
-          gameWorldX: entry.gameWorldX,
+          gameWorldX: entry.gameWorldX ?? derivedWorld.x,
           gameWorldY: inferDefaultAltitude(map, entry.name),
-          gameWorldZ: entry.gameWorldZ,
+          gameWorldZ: entry.gameWorldZ ?? derivedWorld.z,
           notes: entry.notes || "",
           initialOwner: persisted?.owner || entry.initialOwner || inferDefaultOwner(map, entry.name)
         };
@@ -457,10 +1039,15 @@ function resolveGameLocation(map, selectedValue) {
     name: location.name,
     pixelX: location.pixelX,
     pixelY: location.pixelY,
+    gameWorldX: location.gameWorldX,
+    gameWorldY: location.gameWorldY ?? 0,
+    gameWorldZ: location.gameWorldZ,
     x: location.gameWorldX,
     y: location.gameWorldY ?? 0,
     z: location.gameWorldZ,
-    owner: location.initialOwner
+    owner: location.initialOwner,
+    initialOwner: location.initialOwner,
+    notes: location.notes || ""
   };
 }
 
@@ -701,8 +1288,9 @@ async function buildBriefingGraphic() {
   const mapImage = await loadImageAsset(resolveRendererAsset(map.imagePath));
   const locations = getOperationalLocations(map).filter((entry) => entry.pixelX != null && entry.pixelY != null);
   const startingAirfield = resolveGameLocation(map, els.airfieldSelect.value);
-  const objectiveLocation = resolveGameLocation(map, els.objectiveTarget.value);
+  const objectiveLocation = getObjectiveSelection(map);
   const advancedThreats = getAdvancedThreatSettings();
+  const environment = describeEnvironment();
   const canvas = document.createElement("canvas");
   const padding = 88;
   const headerHeight = 320;
@@ -743,7 +1331,7 @@ async function buildBriefingGraphic() {
 
   context.font = "500 32px Segoe UI";
   context.fillStyle = "#9eb2bf";
-  context.fillText(`Threat posture: ${els.objectiveUnitProfile.value} | Intensity: ${OBJECTIVE_INTENSITY_LABELS[Number(els.objectiveIntensity.value || 1)] || "Medium"} | Weather ${Math.round(Number(els.weatherIntensity.value || 0) * 100)}% | Time ${Number(els.timeOfDay.value || 10)}:00`, padding, 266);
+  context.fillText(`Threat posture: ${els.objectiveUnitProfile.value} | Intensity: ${OBJECTIVE_INTENSITY_LABELS[Number(els.objectiveIntensity.value || 1)] || "Medium"} | ${environment.label} | ${environment.weatherBand} ${environment.weatherPercent}%`, padding, 266);
 
   context.drawImage(mapImage, mapX, mapY, drawWidth, drawHeight);
 
@@ -763,12 +1351,6 @@ async function buildBriefingGraphic() {
     context.stroke();
   }
 
-  drawCanvasRadiusOverlays(context, map, objectiveLocation, advancedThreats, {
-    x: mapX,
-    y: mapY,
-    scale
-  });
-
   locations.forEach((location) => {
     drawCanvasMarker(
       context,
@@ -782,6 +1364,19 @@ async function buildBriefingGraphic() {
       }
     );
   });
+
+  if (objectiveLocation?.id === "__custom__" && objectiveLocation.pixelX != null && objectiveLocation.pixelY != null) {
+    drawCanvasMarker(
+      context,
+      mapX + Number(objectiveLocation.pixelX) * scale,
+      mapY + Number(objectiveLocation.pixelY) * scale,
+      {
+        owner: objectiveLocation.initialOwner,
+        label: objectiveLocation.name,
+        isObjective: true
+      }
+    );
+  }
 
   context.fillStyle = "#0b151c";
   context.fillRect(0, height - footerHeight, width, footerHeight);
@@ -849,7 +1444,7 @@ function buildCampaignStatePayload() {
   const map = mapByKey(state.selectedMapKey);
   const locations = getOperationalLocations(map);
   const missionCount = Number(state.campaignState?.missionCount || 0);
-  const selectedObjective = locations.find((entry) => entry.id === els.objectiveTarget.value || entry.name === els.objectiveTarget.value);
+  const selectedObjective = getObjectiveSelection(map);
   const logisticsState = collectCampaignLogisticsState();
   const advancedThreats = getAdvancedThreatSettings();
 
@@ -866,12 +1461,15 @@ function buildCampaignStatePayload() {
       mapLabel: map?.label || "",
       startingAirbase: els.airfieldSelect.value,
       objectiveLocation: els.objectiveTarget.value,
+      customObjectivePoint: state.customObjectivePoint,
       objectiveUnitProfile: els.objectiveUnitProfile.value,
       objectiveIntensity: OBJECTIVE_INTENSITY_LABELS[Number(els.objectiveIntensity.value || 1)] || "Medium",
+      objectiveCompletionPercent: currentObjectiveCompletionPercent(),
+      selectedTargetTemplateId: els.objectiveTemplateSelect.value || "__procedural__",
       startingRank: Number(els.startingRank.value || 5),
       startingCash: Number(els.startingCash.value || 250000),
       allowRespawn: els.allowRespawn.checked,
-      timeOfDay: Number(els.timeOfDay.value || 10),
+      timeOfDay: Number(els.timeOfDay.value || 9),
       weatherIntensity: Number(els.weatherIntensity.value || 0.2),
       threatProfile: {
         samSites: els.enableSam.checked,
@@ -882,6 +1480,7 @@ function buildCampaignStatePayload() {
       },
       advancedThreats
     },
+    targetTemplatesByMap: state.campaignState?.targetTemplatesByMap || {},
     factions: logisticsState,
     locations: locations.map((location) => ({
       id: location.id,
@@ -1149,6 +1748,7 @@ function applyCampaignState() {
   renderFactionOptions();
   renderLocationOptions();
   renderObjectiveOptions();
+  renderTargetTemplateOptions();
 
   if (saved.factions?.[0]?.factionName) {
     els.friendlyFaction.value = saved.factions[0].factionName;
@@ -1185,14 +1785,23 @@ function applyCampaignState() {
 
   applyAdvancedThreatSettings(saved.parameters?.advancedThreats || {});
 
+  state.customObjectivePoint = saved.parameters?.customObjectivePoint || null;
+
   renderLocationOptions();
   renderObjectiveOptions();
+  renderTargetTemplateOptions();
 
   if (saved.parameters?.startingAirbase) {
     els.airfieldSelect.value = saved.parameters.startingAirbase;
   }
   if (saved.parameters?.objectiveLocation) {
     els.objectiveTarget.value = saved.parameters.objectiveLocation;
+  }
+  if (saved.parameters?.selectedTargetTemplateId) {
+    els.objectiveTemplateSelect.value = saved.parameters.selectedTargetTemplateId;
+  }
+  if (saved.parameters?.objectiveCompletionPercent != null) {
+    els.objectiveCompletionPercent.value = saved.parameters.objectiveCompletionPercent;
   }
   if (saved.parameters?.objectiveUnitProfile) {
     els.objectiveUnitProfile.value = saved.parameters.objectiveUnitProfile;
@@ -1208,6 +1817,8 @@ function applyCampaignState() {
   renderCampaignLogistics();
   renderConfigLocationOptions();
   renderObjectiveIntensityValue();
+  renderEnvironmentSummary();
+  renderCustomObjectiveReadout();
   updateWorkspaceSummary();
   renderCampaignStateSummary();
 }
@@ -1284,9 +1895,13 @@ function renderObjectiveOptions() {
   for (const location of locations) {
     els.objectiveTarget.appendChild(createOption(location.id, location.name));
   }
+  if (state.customObjectivePoint) {
+    els.objectiveTarget.appendChild(createOption("__custom__", state.customObjectivePoint.name || "Custom Target Area"));
+  }
 
   const preferredEnemy = locations.find((entry) => entry.initialOwner === els.enemyFaction.value);
   const preferred =
+    (previousValue === "__custom__" && state.customObjectivePoint ? { id: "__custom__" } : null) ||
     locations.find((entry) => entry.id === previousValue) ||
     preferredEnemy ||
     locations.find((entry) => entry.id !== els.airfieldSelect.value) ||
@@ -1360,6 +1975,8 @@ function updateWorkspaceSummary() {
         ? "Location Config"
         : state.activeView === "advanced"
           ? "Advanced Targets"
+          : state.activeView === "tracking"
+            ? "Campaign Tracking"
           : "Campaign Workspace";
     setText(els.mapTitle, emptyTitle);
     setText(
@@ -1376,7 +1993,7 @@ function updateWorkspaceSummary() {
 
   const locations = getOperationalLocations(map);
   const startingAirbase = resolveGameLocation(map, els.airfieldSelect.value);
-  const objectiveLocation = resolveGameLocation(map, els.objectiveTarget.value);
+  const objectiveLocation = getObjectiveSelection(map);
   const ownershipCounts = {
     friendly: locations.filter((entry) => entry.initialOwner === els.friendlyFaction.value).length,
     enemy: locations.filter((entry) => entry.initialOwner === els.enemyFaction.value).length,
@@ -1388,6 +2005,8 @@ function updateWorkspaceSummary() {
       ? `${map.label} Location Config`
       : state.activeView === "advanced"
         ? `${map.label} Advanced Targeting`
+        : state.activeView === "tracking"
+          ? `${map.label} Campaign Tracking`
         : map.label;
   setText(els.mapTitle, title);
   setText(
@@ -1396,6 +2015,8 @@ function updateWorkspaceSummary() {
       ? "Manual ownership setup for a fresh multiplayer campaign start."
       : state.activeView === "config"
         ? "Click a map point, name the location, then enter the in-game X/Z coordinates."
+        : state.activeView === "tracking"
+          ? "Persistent resolution, reserves, and ownership progression live here for players who want campaign continuity."
         : "Dial in the target package, resistance toggles, patrol density, and randomness for this operational area."
   );
   setText(els.workspaceMap, map.label);
@@ -1604,11 +2225,8 @@ function renderCampaignMarkers() {
 
   applyCampaignFrame();
   const startingAirfield = resolveGameLocation(map, els.airfieldSelect.value);
-  const objectiveLocation = resolveGameLocation(map, els.objectiveTarget.value);
-  const settings = getAdvancedThreatSettings();
+  const objectiveLocation = getObjectiveSelection(map);
   els.campaignMarkerLayer.innerHTML = "";
-
-  appendPatrolRadiusOverlays(els.campaignMarkerLayer, map, objectiveLocation, settings);
 
   for (const location of getOperationalLocations(map)) {
     if (location.pixelX == null || location.pixelY == null) {
@@ -1636,6 +2254,18 @@ function renderCampaignMarkers() {
 
     els.campaignMarkerLayer.appendChild(marker);
   }
+
+  if (objectiveLocation?.pixelX != null && objectiveLocation?.pixelY != null && objectiveLocation.id === "__custom__") {
+    const marker = document.createElement("div");
+    marker.className = "campaign-marker campaign-marker--enemy";
+    marker.style.left = `${(objectiveLocation.pixelX / map.pixelSize.width) * 100}%`;
+    marker.style.top = `${(objectiveLocation.pixelY / map.pixelSize.height) * 100}%`;
+    marker.innerHTML = `
+      <div class="campaign-marker__objective"></div>
+      <div class="campaign-marker__label">${objectiveLocation.name}</div>
+    `;
+    els.campaignMarkerLayer.appendChild(marker);
+  }
 }
 
 function renderAdvancedSummary() {
@@ -1643,14 +2273,16 @@ function renderAdvancedSummary() {
     return;
   }
 
-  const objectiveLocation = resolveGameLocation(mapByKey(state.selectedMapKey), els.objectiveTarget.value);
+  const objectiveLocation = getObjectiveSelection(mapByKey(state.selectedMapKey));
   const settings = getAdvancedThreatSettings();
-  const packageTotal =
-    settings.objectivePackage.samSites +
-    settings.objectivePackage.artillerySites +
-    settings.objectivePackage.factoryBuildings +
-    settings.objectivePackage.tankUnits +
-    settings.objectivePackage.ifvUnits;
+  const activeTemplate = getActiveTargetTemplate();
+  const packageTotal = activeTemplate
+    ? activeTemplate.elements.length
+    : settings.objectivePackage.samSites +
+      settings.objectivePackage.artillerySites +
+      settings.objectivePackage.factoryBuildings +
+      settings.objectivePackage.tankUnits +
+      settings.objectivePackage.ifvUnits;
   const enabledThreats = [
     settings.operationalResistance.scatteredGroundVehicles ? "ground" : null,
     settings.operationalResistance.antiAirArtillery ? "AAA" : null,
@@ -1664,8 +2296,9 @@ function renderAdvancedSummary() {
   setText(els.advancedSummaryPackage, String(packageTotal));
   setText(
     els.advancedSummaryThreats,
-    `${enabledThreats.join(", ") || "none"} | axes ${settings.patrolPlan.frontlinePairs} | patrols ${settings.patrolPlan.frontlinePatrolGroups} | convoys ${settings.patrolPlan.convoyGroups} | helo radius ${settings.patrolPlan.helicopterPatrolRadius}m | fixed radius ${settings.patrolPlan.fixedWingPatrolRadius}m | randomness ${settings.patrolPlan.randomnessPercent}%`
+    `${activeTemplate ? `template ${activeTemplate.name} | ` : ""}${enabledThreats.join(", ") || "none"} | axes ${settings.patrolPlan.frontlinePairs} | patrols ${settings.patrolPlan.frontlinePatrolGroups} | convoys ${settings.patrolPlan.convoyGroups} | helo radius ${settings.patrolPlan.helicopterPatrolRadius}m | fixed radius ${settings.patrolPlan.fixedWingPatrolRadius}m | randomness ${settings.patrolPlan.randomnessPercent}% | objective ${currentObjectiveCompletionPercent()}%`
   );
+  renderEnvironmentSummary();
 }
 
 function renderAdvancedMarkers() {
@@ -1677,7 +2310,7 @@ function renderAdvancedMarkers() {
 
   applyAdvancedFrame();
   const startingAirfield = resolveGameLocation(map, els.airfieldSelect.value);
-  const objectiveLocation = resolveGameLocation(map, els.objectiveTarget.value);
+  const objectiveLocation = getObjectiveSelection(map);
   const settings = getAdvancedThreatSettings();
   els.advancedMarkerLayer.innerHTML = "";
 
@@ -1707,6 +2340,18 @@ function renderAdvancedMarkers() {
       marker.innerHTML += `<div class="campaign-marker__objective"></div>`;
     }
 
+    els.advancedMarkerLayer.appendChild(marker);
+  }
+
+  if (objectiveLocation?.pixelX != null && objectiveLocation?.pixelY != null && objectiveLocation.id === "__custom__") {
+    const marker = document.createElement("div");
+    marker.className = "campaign-marker campaign-marker--enemy";
+    marker.style.left = `${(objectiveLocation.pixelX / map.pixelSize.width) * 100}%`;
+    marker.style.top = `${(objectiveLocation.pixelY / map.pixelSize.height) * 100}%`;
+    marker.innerHTML = `
+      <div class="campaign-marker__objective"></div>
+      <div class="campaign-marker__label">${objectiveLocation.name}</div>
+    `;
     els.advancedMarkerLayer.appendChild(marker);
   }
 }
@@ -1781,6 +2426,8 @@ function scrollConfigToPixel(pixelX, pixelY) {
 
 function renderConfigView() {
   const map = mapByKey(state.selectedMapKey);
+  renderTargetTemplateOptions();
+  renderTemplateElements();
   if (!map) {
     state.configImageReady = false;
     els.configEmpty.textContent = "Click Reload Catalog to load Heartland.";
@@ -1812,9 +2459,11 @@ function showView(view) {
   state.activeView = view;
   document.body.classList.toggle("config-mode", view === "config" || view === "advanced");
   els.campaignView.classList.toggle("hidden", view !== "campaign");
+  els.trackingView.classList.toggle("hidden", view !== "tracking");
   els.configView.classList.toggle("hidden", view !== "config");
   els.advancedView.classList.toggle("hidden", view !== "advanced");
   els.showCampaignView.className = view === "campaign" ? "secondary" : "ghost";
+  els.showTrackingView.className = view === "tracking" ? "secondary" : "ghost";
   els.showConfigView.className = view === "config" ? "secondary" : "ghost";
   els.showAdvancedView.className = view === "advanced" ? "secondary" : "ghost";
   updateWorkspaceSummary();
@@ -1825,6 +2474,12 @@ function showView(view) {
 
   if (view === "advanced") {
     renderAdvancedView();
+    return;
+  }
+
+  if (view === "tracking") {
+    renderCampaignStateSummary();
+    renderCampaignLogistics();
     return;
   }
 
@@ -2184,6 +2839,9 @@ function buildBaselineDefenseVehicles(locations, settings) {
 }
 
 function buildObjectiveDefenseVehicles(objectiveLocation, settings) {
+  if (getActiveTargetTemplate()) {
+    return [];
+  }
   if (!objectiveLocation || objectiveLocation.initialOwner === "Neutral") {
     return [];
   }
@@ -2240,6 +2898,9 @@ function buildObjectiveDefenseVehicles(objectiveLocation, settings) {
 }
 
 function buildObjectiveFactoryBuildings(objectiveLocation, settings) {
+  if (getActiveTargetTemplate()) {
+    return [];
+  }
   if (!objectiveLocation || objectiveLocation.initialOwner === "Neutral" || !els.enableFactories.checked) {
     return [];
   }
@@ -2533,7 +3194,54 @@ function buildObjectiveAirPatrolAircraft(objectiveLocation, settings) {
   return aircraft;
 }
 
-function buildCampaignVehicles(locations, objectiveLocation, settings) {
+function buildObjectiveTemplateElements(objectiveLocation) {
+  const template = getActiveTargetTemplate();
+  if (!template || !objectiveLocation) {
+    return { vehicles: [], buildings: [] };
+  }
+
+  const vehicles = [];
+  const buildings = [];
+  const owner = objectiveLocation.initialOwner === "Neutral" ? els.enemyFaction.value : objectiveLocation.initialOwner;
+
+  template.elements.forEach((element, elementIndex) => {
+    const x = Number(objectiveLocation.gameWorldX) + Number(element.offsetX || 0);
+    const z = Number(objectiveLocation.gameWorldZ) + Number(element.offsetZ || 0);
+    const heading = clampNumber(element.heading, 0, 359, 0);
+    const uniqueBase = `objective_${sanitizeIdFragment(objectiveLocation.name)}_${sanitizeIdFragment(template.name)}_${elementIndex + 1}`;
+
+    if (element.kind === "building") {
+      buildings.push(
+        createFactoryBuilding(
+          element.type,
+          owner,
+          uniqueBase,
+          x,
+          Number(objectiveLocation.gameWorldY ?? 0),
+          z,
+          heading,
+          FACTORY_PRODUCTION_TYPES[elementIndex % FACTORY_PRODUCTION_TYPES.length]
+        )
+      );
+    } else {
+      vehicles.push(
+        createDefenderVehicle(
+          element.type,
+          owner,
+          uniqueBase,
+          x,
+          Number(objectiveLocation.gameWorldY ?? 0),
+          z,
+          heading
+        )
+      );
+    }
+  });
+
+  return { vehicles, buildings };
+}
+
+function buildCampaignVehicles(locations, objectiveLocation, settings, objectiveTemplateVehicles = []) {
   const persistedVehicles = buildVehiclesFromPersistentUnits();
   if (persistedVehicles.length > 0) {
     return persistedVehicles;
@@ -2541,6 +3249,7 @@ function buildCampaignVehicles(locations, objectiveLocation, settings) {
 
   return [
     ...buildBaselineDefenseVehicles(locations, settings),
+    ...objectiveTemplateVehicles,
     ...buildObjectiveDefenseVehicles(objectiveLocation, settings),
     ...buildLocalPatrolVehicles(locations, settings),
     ...buildObjectivePatrolVehicles(objectiveLocation, settings),
@@ -2579,7 +3288,7 @@ async function getCampaignPayload() {
   const map = mapByKey(state.selectedMapKey);
   const locations = getOperationalLocations(map).filter((entry) => entry.gameWorldX != null && entry.gameWorldZ != null);
   const startingAirbase = resolveGameLocation(map, els.airfieldSelect.value);
-  const objectiveLocation = getOperationalLocations(map).find((entry) => entry.id === els.objectiveTarget.value || entry.name === els.objectiveTarget.value);
+  const objectiveLocation = getObjectiveSelection(map);
 
   if (!startingAirbase) {
     throw new Error("Select a valid starting airfield.");
@@ -2599,9 +3308,13 @@ async function getCampaignPayload() {
 
   const advancedThreats = getAdvancedThreatSettings();
   const factionResources = collectCampaignLogisticsState();
-  const ownershipVehicles = buildCampaignVehicles(locations, objectiveLocation, advancedThreats);
+  const objectiveTemplate = buildObjectiveTemplateElements(objectiveLocation);
+  const ownershipVehicles = buildCampaignVehicles(locations, objectiveLocation, advancedThreats, objectiveTemplate.vehicles);
   const objectiveAircraft = buildObjectiveAirPatrolAircraft(objectiveLocation, advancedThreats);
-  const targetBuildings = buildObjectiveFactoryBuildings(objectiveLocation, advancedThreats);
+  const targetBuildings = [
+    ...objectiveTemplate.buildings,
+    ...buildObjectiveFactoryBuildings(objectiveLocation, advancedThreats)
+  ];
   const friendlyResources = factionResources.find((entry) => entry.factionName === els.friendlyFaction.value) || getPersistedFactionState(els.friendlyFaction.value);
   const enemyResources = factionResources.find((entry) => entry.factionName === els.enemyFaction.value) || getPersistedFactionState(els.enemyFaction.value);
   const friendlyStartingBalance = Number(friendlyResources.startingBalance ?? els.startingCash.value ?? 250000);
@@ -2682,13 +3395,16 @@ async function getCampaignPayload() {
       mapKey: map.key,
       mapLabel: map.label,
       startingAirbase: startingAirbase.name,
-      objectiveLocation: objectiveLocation.name,
+      objectiveLocation: objectiveLocation.id === "__custom__" ? "__custom__" : objectiveLocation.name,
+      customObjectivePoint: objectiveLocation.id === "__custom__" ? state.customObjectivePoint : null,
       objectiveUnitProfile: els.objectiveUnitProfile.value,
       objectiveIntensity: OBJECTIVE_INTENSITY_LABELS[Number(els.objectiveIntensity.value || 1)] || "Medium",
+      objectiveCompletionPercent: currentObjectiveCompletionPercent(),
+      selectedTargetTemplateId: els.objectiveTemplateSelect.value || "__procedural__",
       startingRank: Number(els.startingRank.value || 5),
       startingCash: Number(els.startingCash.value || 250000),
       allowRespawn: els.allowRespawn.checked,
-      timeOfDay: Number(els.timeOfDay.value || 10),
+      timeOfDay: Number(els.timeOfDay.value || 9),
       weatherIntensity: Number(els.weatherIntensity.value || 0.2),
       threatProfile: {
         samSites: els.enableSam.checked,
@@ -2710,7 +3426,11 @@ async function getCampaignPayload() {
         gameWorldY: objectiveLocation.gameWorldY ?? 0,
         gameWorldZ: objectiveLocation.gameWorldZ,
         profile: els.objectiveUnitProfile.value,
-        intensity: OBJECTIVE_INTENSITY_LABELS[Number(els.objectiveIntensity.value || 1)] || "Medium"
+        intensity: OBJECTIVE_INTENSITY_LABELS[Number(els.objectiveIntensity.value || 1)] || "Medium",
+        completionPercent: currentObjectiveCompletionPercent(),
+        pixelX: objectiveLocation.pixelX ?? null,
+        pixelY: objectiveLocation.pixelY ?? null,
+        targetTemplateId: els.objectiveTemplateSelect.value || "__procedural__"
       },
       factions,
       locations,
@@ -2805,6 +3525,161 @@ async function saveConfiguredLocation() {
   renderCampaignStateSummary();
 }
 
+async function saveTargetTemplateDefinition() {
+  ensureCampaignStateContainer();
+  const name = (els.configTemplateName?.value || "").trim();
+  if (!name) {
+    els.output.innerHTML = "<div>Template name is required.</div>";
+    return;
+  }
+
+  const templates = getTargetTemplatesForMap().slice();
+  const existingIndex = templates.findIndex((entry) => entry.id === state.activeTemplateId);
+  const existing = existingIndex >= 0 ? templates[existingIndex] : null;
+  const nextTemplate = existing || { id: createTemplateId(name), name, mapKey: state.selectedMapKey, elements: [] };
+  nextTemplate.name = name;
+  nextTemplate.mapKey = state.selectedMapKey;
+  nextTemplate.elements = Array.isArray(nextTemplate.elements) ? nextTemplate.elements : [];
+
+  if (existingIndex >= 0) {
+    templates[existingIndex] = nextTemplate;
+  } else {
+    templates.push(nextTemplate);
+  }
+
+  state.campaignState.targetTemplatesByMap[state.selectedMapKey] = templates;
+  state.activeTemplateId = nextTemplate.id;
+  renderTargetTemplateOptions();
+  loadTemplateIntoEditor(nextTemplate.id);
+  els.output.innerHTML = `<div>Target template saved.</div><div>${nextTemplate.name}</div>`;
+  const result = await persistCampaignState({ targetTemplatesByMap: state.campaignState.targetTemplatesByMap });
+  renderCampaignStateSummary(result);
+}
+
+async function importTargetTemplateFile(file) {
+  if (!file) {
+    return;
+  }
+
+  ensureCampaignStateContainer();
+
+  let imported;
+  try {
+    imported = parseImportedTemplatePayload(file.name, await file.text());
+  } catch (error) {
+    els.output.innerHTML = `<div>Template import failed.</div><div>${error.message}</div>`;
+    return;
+  }
+
+  if (!imported.elements.length) {
+    els.output.innerHTML = "<div>Template import found no supported elements.</div>";
+    return;
+  }
+
+  const templates = getTargetTemplatesForMap().slice();
+  const existingIndex = templates.findIndex((entry) => entry.id === state.activeTemplateId);
+  const fallbackName = extractFileStem(file.name);
+  const desiredName = (els.configTemplateName?.value || "").trim() || imported.name || fallbackName;
+  const existing = existingIndex >= 0 ? templates[existingIndex] : null;
+  const nextTemplate = existing || {
+    id: createTemplateId(desiredName),
+    name: desiredName,
+    mapKey: state.selectedMapKey,
+    elements: []
+  };
+
+  nextTemplate.name = desiredName;
+  nextTemplate.mapKey = state.selectedMapKey;
+  nextTemplate.elements = imported.elements;
+
+  if (existingIndex >= 0) {
+    templates[existingIndex] = nextTemplate;
+  } else {
+    templates.push(nextTemplate);
+  }
+
+  state.campaignState.targetTemplatesByMap[state.selectedMapKey] = templates;
+  state.activeTemplateId = nextTemplate.id;
+  renderTargetTemplateOptions();
+  loadTemplateIntoEditor(nextTemplate.id);
+  renderAdvancedSummary();
+  renderCampaignMarkers();
+  renderAdvancedMarkers();
+  const result = await persistCampaignState({ targetTemplatesByMap: state.campaignState.targetTemplatesByMap });
+  renderCampaignStateSummary(result);
+  els.output.innerHTML = `
+    <div>Target template imported.</div>
+    <div>${nextTemplate.name}</div>
+    <div>${imported.elements.length} elements from ${file.name}</div>
+  `;
+}
+
+async function addTemplateElementToEditor() {
+  ensureCampaignStateContainer();
+  if (!state.activeTemplateId) {
+    await saveTargetTemplateDefinition();
+  }
+
+  const templates = getTargetTemplatesForMap().slice();
+  const templateIndex = templates.findIndex((entry) => entry.id === state.activeTemplateId);
+  if (templateIndex < 0) {
+    return;
+  }
+
+  const type = els.configTemplateElementType.value;
+  const typeMeta = TARGET_TEMPLATE_ELEMENT_TYPES.find((entry) => entry.value === type);
+  templates[templateIndex].elements.push({
+    id: `${sanitizeIdFragment(type)}_${Date.now()}`,
+    type,
+    kind: typeMeta?.kind || "vehicle",
+    offsetX: Number(els.configTemplateOffsetX.value || 0),
+    offsetZ: Number(els.configTemplateOffsetZ.value || 0),
+    heading: clampNumber(els.configTemplateElementHeading.value, 0, 359, 0)
+  });
+
+  state.campaignState.targetTemplatesByMap[state.selectedMapKey] = templates;
+  renderTemplateElements();
+  renderTargetTemplateOptions();
+  renderAdvancedSummary();
+  renderCampaignMarkers();
+  renderAdvancedMarkers();
+  await persistCampaignState({ targetTemplatesByMap: state.campaignState.targetTemplatesByMap });
+  renderCampaignStateSummary();
+}
+
+async function deleteTargetTemplateDefinition() {
+  if (!state.activeTemplateId) {
+    resetTemplateEditor();
+    renderTemplateElements();
+    return;
+  }
+
+  ensureCampaignStateContainer();
+  state.campaignState.targetTemplatesByMap[state.selectedMapKey] = getTargetTemplatesForMap().filter((entry) => entry.id !== state.activeTemplateId);
+  if (els.objectiveTemplateSelect.value === state.activeTemplateId) {
+    els.objectiveTemplateSelect.value = "__procedural__";
+  }
+  resetTemplateEditor();
+  renderTargetTemplateOptions();
+  renderTemplateElements();
+  renderAdvancedSummary();
+  renderCampaignMarkers();
+  renderAdvancedMarkers();
+  await persistCampaignState({ targetTemplatesByMap: state.campaignState.targetTemplatesByMap });
+  renderCampaignStateSummary();
+}
+
+async function removeTemplateElement(index) {
+  const template = currentEditingTemplate();
+  if (!template) {
+    return;
+  }
+  template.elements.splice(index, 1);
+  renderTemplateElements();
+  await persistCampaignState({ targetTemplatesByMap: state.campaignState.targetTemplatesByMap });
+  renderCampaignStateSummary();
+}
+
 async function saveOwnershipChange(name, initialOwner) {
   const result = await window.nuclearOptionApi.saveLocationOwnership({
     mapKey: state.selectedMapKey,
@@ -2865,6 +3740,39 @@ function onConfigMarkerClick(event) {
   loadConfigFormFromLocation(name);
 }
 
+function onObjectiveMapClick(event) {
+  if (!state.objectivePickMode) {
+    return;
+  }
+
+  const map = mapByKey(state.selectedMapKey);
+  if (!map) {
+    return;
+  }
+
+  const stage =
+    event.currentTarget === els.advancedStage
+      ? els.advancedCanvas
+      : els.campaignCanvas;
+  const rect = stage.getBoundingClientRect();
+  const localX = event.clientX - rect.left;
+  const localY = event.clientY - rect.top;
+  const width = rect.width || 1;
+  const height = rect.height || 1;
+
+  if (localX < 0 || localX > width || localY < 0 || localY > height) {
+    return;
+  }
+
+  setCustomObjectivePointFromPixel((localX / width) * map.pixelSize.width, (localY / height) * map.pixelSize.height);
+  persistCampaignState({
+    parameters: {
+      customObjectivePoint: state.customObjectivePoint,
+      objectiveLocation: "__custom__"
+    }
+  }).then(renderCampaignStateSummary);
+}
+
 function bindEvents() {
   els.mapSelect.addEventListener("change", () => {
     if (!state.catalog) {
@@ -2873,8 +3781,12 @@ function bindEvents() {
 
     state.selectedMapKey = els.mapSelect.value;
     state.configPoint = null;
+    state.customObjectivePoint = null;
+    state.objectivePickMode = false;
     renderLocationOptions();
     renderObjectiveOptions();
+    renderTargetTemplateOptions();
+    renderCustomObjectiveReadout();
     renderOwnershipList();
     renderCampaignLogistics();
     renderConfigLocationOptions();
@@ -2899,10 +3811,21 @@ function bindEvents() {
     renderAdvancedMarkers();
   });
   els.objectiveTarget.addEventListener("change", () => {
+    renderCustomObjectiveReadout();
     updateWorkspaceSummary();
     renderCampaignMarkers();
     renderAdvancedSummary();
     renderAdvancedMarkers();
+  });
+  els.objectiveTemplateSelect.addEventListener("change", () => {
+    renderAdvancedSummary();
+    renderCampaignMarkers();
+    renderAdvancedMarkers();
+    persistCampaignState().then(renderCampaignStateSummary);
+  });
+  els.objectiveCompletionPercent.addEventListener("change", () => {
+    renderAdvancedSummary();
+    persistCampaignState().then(renderCampaignStateSummary);
   });
   els.objectiveUnitProfile.addEventListener("change", () => {
     updateWorkspaceSummary();
@@ -2945,9 +3868,36 @@ function bindEvents() {
   });
 
   els.showCampaignView.addEventListener("click", () => showView("campaign"));
+  els.showTrackingView.addEventListener("click", () => showView("tracking"));
   els.showConfigView.addEventListener("click", () => showView("config"));
   els.showAdvancedView.addEventListener("click", () => showView("advanced"));
   els.openAdvancedTargets.addEventListener("click", () => showView("advanced"));
+  els.pickObjectiveOnMap.addEventListener("click", () => {
+    state.objectivePickMode = true;
+    renderCustomObjectiveReadout();
+  });
+  els.clearCustomObjective.addEventListener("click", () => {
+    state.objectivePickMode = false;
+    state.customObjectivePoint = null;
+    renderObjectiveOptions();
+    const currentLocations = getOperationalLocations(mapByKey(state.selectedMapKey));
+    els.objectiveTarget.value =
+      currentLocations.find((entry) => entry.initialOwner === els.enemyFaction.value)?.id ||
+      currentLocations.find((entry) => entry.id !== els.airfieldSelect.value)?.id ||
+      currentLocations[0]?.id ||
+      "";
+    renderCustomObjectiveReadout();
+    updateWorkspaceSummary();
+    renderCampaignMarkers();
+    renderAdvancedSummary();
+    renderAdvancedMarkers();
+    persistCampaignState({
+      parameters: {
+        customObjectivePoint: null,
+        objectiveLocation: els.objectiveTarget.value
+      }
+    }).then(renderCampaignStateSummary);
+  });
   els.campaignScroll.addEventListener("scroll", syncCampaignTopScrollFromMain);
   els.campaignTopScroll.addEventListener("scroll", syncCampaignMainScrollFromTop);
   els.campaignMapImage.addEventListener("load", () => {
@@ -2997,6 +3947,8 @@ function bindEvents() {
       renderCampaignMarkers();
     }
   });
+  els.campaignStage.addEventListener("click", onObjectiveMapClick);
+  els.advancedStage.addEventListener("click", onObjectiveMapClick);
   els.configStage.addEventListener("click", onConfigMapClick);
   els.configMarkerLayer.addEventListener("click", onConfigMarkerClick);
   els.configExistingLocation.addEventListener("change", () => {
@@ -3014,7 +3966,31 @@ function bindEvents() {
 
     loadConfigFormFromLocation(els.configExistingLocation.value);
   });
+  els.configExistingTemplate.addEventListener("change", () => {
+    loadTemplateIntoEditor(els.configExistingTemplate.value);
+  });
   els.saveConfigLocation.addEventListener("click", saveConfiguredLocation);
+  els.addTemplateElement.addEventListener("click", addTemplateElementToEditor);
+  els.importTargetTemplate.addEventListener("click", () => {
+    els.importTargetTemplateFile.value = "";
+    els.importTargetTemplateFile.click();
+  });
+  els.importTargetTemplateFile.addEventListener("change", (event) => {
+    const [file] = Array.from(event.target.files || []);
+    if (!file) {
+      return;
+    }
+    importTargetTemplateFile(file);
+  });
+  els.saveTargetTemplate.addEventListener("click", saveTargetTemplateDefinition);
+  els.deleteTargetTemplate.addEventListener("click", deleteTargetTemplateDefinition);
+  els.configTemplateElements.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-template-remove-index]");
+    if (!button) {
+      return;
+    }
+    removeTemplateElement(Number(button.dataset.templateRemoveIndex));
+  });
   els.applyCampaignResolution.addEventListener("click", applyCampaignResolution);
   [
     els.campaignName,
@@ -3022,6 +3998,8 @@ function bindEvents() {
     els.mapSelect,
     els.airfieldSelect,
     els.objectiveTarget,
+    els.objectiveTemplateSelect,
+    els.objectiveCompletionPercent,
     els.objectiveUnitProfile,
     els.objectiveIntensity,
     els.startingRank,
@@ -3059,6 +4037,8 @@ function bindEvents() {
     const eventName = element.type === "range" ? "input" : "change";
     element.addEventListener(eventName, () => {
       renderAdvancedRandomnessValue();
+      renderEnvironmentSummary();
+      renderCustomObjectiveReadout();
       renderAdvancedSummary();
       renderCampaignMarkers();
       renderAdvancedMarkers();
@@ -3107,6 +4087,7 @@ async function loadCatalog() {
   renderFactionOptions();
   renderLocationOptions();
   renderObjectiveOptions();
+  renderTargetTemplateOptions();
   renderCampaignLogistics();
   applyAdvancedThreatSettings(state.campaignState?.parameters?.advancedThreats || {});
   applyCampaignState();
@@ -3153,6 +4134,7 @@ bindEvents();
 state.configZoom = Number(els.configZoom?.value || 1);
 renderObjectiveIntensityValue();
 renderAdvancedRandomnessValue();
+renderEnvironmentSummary();
 showView("campaign");
 updateWorkspaceSummary();
 renderCampaignView();

@@ -762,23 +762,48 @@ function replaceDirectory(sourcePath, targetPath) {
 function buildGeneratedBriefing(payload) {
   const initialState = payload.initialState || {};
   const objective = initialState.objectiveLocation || {};
+  const completionPercent = Number(objective.completionPercent ?? payload.parameters?.objectiveCompletionPercent ?? 50);
   const briefingLines = [
     `Start from: ${payload.parameters.startingAirbase}`,
     `Primary objective: ${objective.name || "Unspecified"}`,
     `Enemy profile: ${objective.profile || "Mixed"}`,
-    `Expected resistance: ${objective.intensity || "Medium"}`
+    `Expected resistance: ${objective.intensity || "Medium"}`,
+    `Objective completion threshold: ${completionPercent}%`
   ];
 
   const customDescription = (payload.parameters.description || "").trim();
   return [customDescription, briefingLines.join("\n")].filter(Boolean).join("\n\n");
 }
 
+function getObjectiveTargetNames(payload) {
+  const initialState = payload.initialState || {};
+  const objective = initialState.objectiveLocation || {};
+  const objectiveSlug = sanitizeName(objective.name || "").replace(/\s+/g, "_").toLowerCase();
+  const unitTargets = (initialState.ownershipVehicles || [])
+    .filter((vehicle) => vehicle.UniqueName?.startsWith(`objective_`) && vehicle.UniqueName.toLowerCase().includes(objectiveSlug))
+    .map((vehicle) => vehicle.UniqueName);
+  const buildingTargets = (initialState.targetBuildings || [])
+    .filter((building) => building.UniqueName?.startsWith(`objective_`))
+    .map((building) => building.UniqueName);
+  return [...unitTargets, ...buildingTargets];
+}
+
+function getRequiredObjectiveTargets(payload) {
+  const targetNames = getObjectiveTargetNames(payload);
+  if (targetNames.length === 0) {
+    return [];
+  }
+
+  const completionPercent = Math.max(1, Math.min(100, Number(payload.parameters?.objectiveCompletionPercent || 50)));
+  const requiredCount = Math.max(1, Math.ceil(targetNames.length * (completionPercent / 100)));
+  return targetNames.slice(0, requiredCount);
+}
+
 function buildPrimaryObjective(payload) {
   const initialState = payload.initialState || {};
   const objective = initialState.objectiveLocation || {};
-  const targetUnits = (initialState.ownershipVehicles || []).filter((vehicle) => {
-    return vehicle.UniqueName?.startsWith(`objective_${sanitizeName(objective.name || "").replace(/\s+/g, "_").toLowerCase()}_`);
-  });
+  const requiredTargets = getRequiredObjectiveTargets(payload);
+  const completionPercent = Number(payload.parameters?.objectiveCompletionPercent || 50);
 
   return {
     objective: {
@@ -794,8 +819,8 @@ function buildPrimaryObjective(payload) {
           FloatValue: 2,
           VectorValue: { x: 0, y: 0, z: 0 }
         },
-        ...targetUnits.map((vehicle) => ({
-          StringValue: vehicle.UniqueName,
+        ...requiredTargets.map((uniqueName) => ({
+          StringValue: uniqueName,
           FloatValue: 0,
           VectorValue: { x: 0, y: 0, z: 0 }
         }))
@@ -808,7 +833,7 @@ function buildPrimaryObjective(payload) {
       TypeName: "ShowMessage",
       Data: [
         {
-          StringValue: `Start from ${payload.parameters.startingAirbase}. Primary objective: ${objective.name || "Objective Area"}.`,
+          StringValue: `Start from ${payload.parameters.startingAirbase}. Primary objective: ${objective.name || "Objective Area"}. Destroy ${completionPercent}% of designated target elements.`,
           FloatValue: 0,
           VectorValue: { x: 0, y: 0, z: 0 }
         },
@@ -840,12 +865,11 @@ function buildLegacyFactionObjectives(payload) {
   const objectiveX = Number(objective.gameWorldX ?? 0);
   const objectiveY = Number(objective.gameWorldY ?? 0);
   const objectiveZ = Number(objective.gameWorldZ ?? 0);
+  const completionPercent = Number(payload.parameters?.objectiveCompletionPercent || 50);
   const ingressX = (startX + objectiveX) / 2;
   const ingressY = (startY + objectiveY) / 2;
   const ingressZ = (startZ + objectiveZ) / 2;
-  const objectiveTargets = (initialState.ownershipVehicles || [])
-    .filter((vehicle) => vehicle.UniqueName?.startsWith(`objective_${sanitizeName(objectiveName).replace(/\s+/g, "_").toLowerCase()}_`))
-    .map((vehicle) => vehicle.UniqueName);
+  const objectiveTargets = getRequiredObjectiveTargets(payload);
 
   return [
     {
@@ -878,7 +902,7 @@ function buildLegacyFactionObjectives(payload) {
     },
     {
       objectiveName,
-      message: `${objectiveName} is the designated objective area. Expect ${objective.profile || "mixed"} resistance at ${objective.intensity || "medium"} intensity.`,
+      message: `${objectiveName} is the designated objective area. Expect ${objective.profile || "mixed"} resistance at ${objective.intensity || "medium"} intensity. Destroy ${completionPercent}% of the designated target set.`,
       positionTrigger: true,
       victoryObjective: false,
       nonSequentialObjective: false,
@@ -891,8 +915,8 @@ function buildLegacyFactionObjectives(payload) {
       targetUnits: []
     },
     {
-      objectiveName: `Destroy ${objectiveName}`,
-      message: `${objectiveName} has been neutralised.`,
+      objectiveName: `Neutralise ${objectiveName}`,
+      message: `${objectiveName} has been reduced below the required ${completionPercent}% threshold.`,
       positionTrigger: false,
       victoryObjective: true,
       nonSequentialObjective: false,
@@ -1231,8 +1255,6 @@ function upsertConfiguredLocation(payload) {
   const name = (payload?.name || "").trim();
   const pixelX = Number(payload?.pixelX);
   const pixelY = Number(payload?.pixelY);
-  const gameWorldX = payload?.gameWorldX === "" || payload?.gameWorldX == null ? "" : String(Number(payload.gameWorldX));
-  const gameWorldZ = payload?.gameWorldZ === "" || payload?.gameWorldZ == null ? "" : String(Number(payload.gameWorldZ));
   const notes = (payload?.notes || "").trim();
 
   if (!mapKey || !name || Number.isNaN(pixelX) || Number.isNaN(pixelY)) {
@@ -1246,6 +1268,10 @@ function upsertConfiguredLocation(payload) {
   const preset = MAP_PRESETS[mapKey];
   const left = ((pixelX / preset.pixelSize.width) * 100).toFixed(2);
   const top = ((pixelY / preset.pixelSize.height) * 100).toFixed(2);
+  const derivedWorldX = preset.bounds.minX + (preset.bounds.maxX - preset.bounds.minX) * (pixelX / preset.pixelSize.width);
+  const derivedWorldZ = preset.bounds.maxZ - (preset.bounds.maxZ - preset.bounds.minZ) * (pixelY / preset.pixelSize.height);
+  const gameWorldX = payload?.gameWorldX === "" || payload?.gameWorldX == null ? String(Math.round(derivedWorldX)) : String(Number(payload.gameWorldX));
+  const gameWorldZ = payload?.gameWorldZ === "" || payload?.gameWorldZ == null ? String(Math.round(derivedWorldZ)) : String(Number(payload.gameWorldZ));
 
   ensureWritableDataBootstrap();
   const heartlandPath = getHeartlandPixelLocationsPath();

@@ -40,11 +40,6 @@
             <div class="workspace-card__text" id="install-path-readout">Auto-detecting Nuclear Option install...</div>
           </div>
 
-          <div class="workspace-card workspace-card--full campaign-state-summary" id="campaign-state-summary">
-            <div class="workspace-card__label">Persistent Campaign State</div>
-            <div class="workspace-card__text">No campaign state saved yet.</div>
-          </div>
-
           <div class="stack">
             <label class="field">
               <span>Campaign Name</span>
@@ -105,6 +100,38 @@
               </label>
             </div>
 
+            <div class="field-grid">
+              <label class="field">
+                <span>Target Type</span>
+                <select id="objective-template-select"></select>
+                <div class="field-help">Choose a saved reusable target layout, or leave this on the procedural package.</div>
+              </label>
+              <label class="field">
+                <span>Objective Completion</span>
+                <select id="objective-completion-percent">
+                  <option value="25">25%</option>
+                  <option value="40">40%</option>
+                  <option value="50" selected>50%</option>
+                  <option value="60">60%</option>
+                  <option value="75">75%</option>
+                  <option value="100">100%</option>
+                </select>
+                <div class="field-help">How much of the designated objective set must be destroyed to complete the strike.</div>
+              </label>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <span>Objective Point</span>
+                <div class="inline-actions">
+                  <button class="secondary" id="pick-objective-on-map">Pick On Map</button>
+                  <button class="ghost" id="clear-custom-objective">Use Named Location</button>
+                </div>
+                <div class="workspace-card__text" id="custom-objective-readout">Using the selected named location.</div>
+                <div class="field-help">Pick any point on the map for a free-placed bullseye, or fall back to the selected named location.</div>
+              </div>
+            </div>
+
             <label class="field">
               <span>Objective Force Concentration</span>
               <input id="objective-intensity" type="range" min="0" max="3" step="1" value="1" />
@@ -115,16 +142,28 @@
                 <span>Very High</span>
               </div>
               <div class="slider-value" id="objective-intensity-value">Medium</div>
+              <div class="field-help">Controls how dense the procedural defenders feel around the objective when you are not relying only on a template.</div>
             </label>
 
             <div class="inline-actions">
               <button class="secondary" id="open-advanced-targets">Open Advanced Targets</button>
             </div>
+            <div class="field-help">Open the detailed threat-planning screen for exact patrol, SAM, artillery, convoy, and resistance controls.</div>
 
             <div class="field-grid">
               <label class="field">
                 <span>Time of Day</span>
-                <input id="time-of-day" type="range" min="0" max="24" step="0.5" value="10" />
+                <select id="time-of-day">
+                  <option value="4.5">Pre-Dawn</option>
+                  <option value="6.5">Sunrise</option>
+                  <option value="9" selected>Morning</option>
+                  <option value="12">Midday</option>
+                  <option value="15.5">Afternoon</option>
+                  <option value="18.5">Sunset</option>
+                  <option value="21">Evening</option>
+                  <option value="23.5">Late Night</option>
+                </select>
+                <div class="workspace-card__text" id="time-of-day-readout">Broad daylight with strong visibility.</div>
               </label>
               <label class="field">
                 <span>Weather Intensity</span>
@@ -151,16 +190,6 @@
             </div>
             <div class="ownership-list" id="ownership-list"></div>
 
-            <div class="section-header section-header--sub">
-              <span>Campaign Resolution</span>
-            </div>
-            <div class="workspace-card workspace-card--full">
-              <div class="workspace-card__text">
-                Update persistent faction funds, reserves, and post-mission ownership here. The next generated mission will use this saved campaign state.
-              </div>
-            </div>
-            <div class="logistics-list" id="campaign-logistics"></div>
-            <button class="secondary" id="apply-campaign-resolution">Apply Resolution To Campaign State</button>
           </div>
 
           <div class="section-header section-header--sub">
@@ -181,6 +210,7 @@
                 <input id="config-zoom" type="range" min="1" max="4" step="0.25" value="1.5" />
               </label>
               <button class="secondary" id="show-campaign-view">Campaign Setup</button>
+              <button class="ghost" id="show-tracking-view">Campaign Tracking</button>
               <button class="ghost" id="show-config-view">Configure Locations</button>
               <button class="ghost" id="show-advanced-view">Advanced Targets</button>
             </div>
@@ -229,6 +259,28 @@
             </div>
           </div>
 
+          <div class="workspace-body hidden" id="tracking-view">
+            <div class="workspace-summary-grid workspace-summary-grid--compact">
+              <div class="workspace-card workspace-card--full campaign-state-summary" id="campaign-state-summary">
+                <div class="workspace-card__label">Persistent Campaign State</div>
+                <div class="workspace-card__text">No campaign state saved yet.</div>
+              </div>
+              <div class="workspace-card workspace-card--full">
+                <div class="workspace-card__label">Campaign Resolution</div>
+                <div class="workspace-card__text">
+                  Update persistent faction funds, reserves, and post-mission ownership here. The next generated mission will use this saved campaign state.
+                </div>
+              </div>
+            </div>
+
+            <div class="tracking-body">
+              <div class="logistics-list" id="campaign-logistics"></div>
+              <div class="tracking-actions">
+                <button class="secondary" id="apply-campaign-resolution">Apply Resolution To Campaign State</button>
+              </div>
+            </div>
+          </div>
+
           <div class="config-body hidden" id="config-view">
             <div class="config-stage" id="config-stage">
               <div class="config-empty" id="config-empty">Loading Heartland map...</div>
@@ -240,6 +292,55 @@
               </div>
             </div>
             <div class="config-panel">
+              <div class="workspace-card workspace-card--full config-template-card">
+                <div class="workspace-card__label">Target Templates</div>
+                <div class="workspace-card__text">
+                  Build reusable target layouts here, then select them later from the `Target Type` dropdown in Campaign Setup.
+                </div>
+
+                <label class="field">
+                  <span>Existing Template</span>
+                  <select id="config-existing-template"></select>
+                </label>
+
+                <label class="field">
+                  <span>Template Name</span>
+                  <input id="config-template-name" />
+                </label>
+
+                <div class="field-grid">
+                  <label class="field">
+                    <span>Element Type</span>
+                    <select id="config-template-element-type"></select>
+                  </label>
+                  <label class="field">
+                    <span>Heading</span>
+                    <input id="config-template-element-heading" type="number" min="0" max="359" step="5" value="0" />
+                  </label>
+                </div>
+
+                <div class="field-grid">
+                  <label class="field">
+                    <span>Offset X</span>
+                    <input id="config-template-offset-x" type="number" step="25" value="0" />
+                  </label>
+                  <label class="field">
+                    <span>Offset Z</span>
+                    <input id="config-template-offset-z" type="number" step="25" value="0" />
+                  </label>
+                </div>
+
+                <div class="inline-actions">
+                  <button class="secondary" id="add-template-element">Add Element</button>
+                  <button class="ghost" id="import-target-template">Import Template</button>
+                  <button class="ghost" id="save-target-template">Save Template</button>
+                  <button class="ghost" id="delete-target-template">Delete Template</button>
+                </div>
+                <input class="hidden" id="import-target-template-file" type="file" accept=".json,application/json" />
+
+                <div class="mission-list config-template-elements" id="config-template-elements"></div>
+              </div>
+
               <div class="workspace-card workspace-card--full">
                 <div class="workspace-card__label">Click Capture</div>
                 <div class="workspace-card__text" id="config-readout">Click the map to capture an exact image position.</div>
@@ -400,6 +501,10 @@
                 <div class="workspace-card workspace-card--full">
                   <div class="workspace-card__label">Threat Posture</div>
                   <div class="workspace-card__text" id="advanced-summary-threats">-</div>
+                </div>
+                <div class="workspace-card workspace-card--full">
+                  <div class="workspace-card__label">Environment Outlook</div>
+                  <div class="workspace-card__text" id="advanced-environment-summary">-</div>
                 </div>
               </div>
 
