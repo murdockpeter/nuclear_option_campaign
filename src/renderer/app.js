@@ -259,8 +259,15 @@ const els = {
   importTargetTemplateFile: document.getElementById("import-target-template-file"),
   saveTargetTemplate: document.getElementById("save-target-template"),
   deleteTargetTemplate: document.getElementById("delete-target-template"),
-  configTemplateElements: document.getElementById("config-template-elements")
-  ,
+  configTemplateElements: document.getElementById("config-template-elements"),
+  openTemplateElements: document.getElementById("open-template-elements"),
+  closeTemplateElements: document.getElementById("close-template-elements"),
+  templateElementsDrawer: document.getElementById("template-elements-drawer"),
+  templateElementsBackdrop: document.getElementById("template-elements-backdrop"),
+  templateElementCount: document.getElementById("template-element-count"),
+  templateDrawerCount: document.getElementById("template-drawer-count"),
+  templateElementsSubtitle: document.getElementById("template-elements-subtitle"),
+  templateElementsFilter: document.getElementById("template-elements-filter"),
   setInstallPath: document.getElementById("set-install-path"),
   clearInstallPath: document.getElementById("clear-install-path")
 };
@@ -790,6 +797,9 @@ function parseImportedTemplatePayload(fileName, text) {
 
 function resetTemplateEditor() {
   state.activeTemplateId = "";
+  if (els.templateElementsFilter) {
+    els.templateElementsFilter.value = "";
+  }
   if (els.configExistingTemplate) {
     els.configExistingTemplate.value = "";
   }
@@ -845,17 +855,46 @@ function renderTemplateElements() {
   }
 
   const template = currentEditingTemplate();
+  const elementCount = template?.elements?.length || 0;
+  const filterQuery = (els.templateElementsFilter?.value || "").trim().toLowerCase();
+  els.templateElementCount.textContent = String(elementCount);
+  els.templateElementsSubtitle.textContent = template
+    ? `${template.name} — review the objects and relative positions in this layout.`
+    : "Create or load a template to begin assembling its object list.";
+
   if (!template) {
+    els.templateDrawerCount.textContent = "0 objects";
     els.configTemplateElements.innerHTML = `<div class="mission-card"><div class="mission-card__meta">Create or load a template, then add relative target elements here.</div></div>`;
     return;
   }
 
-  els.configTemplateElements.innerHTML = template.elements.length
-    ? template.elements.map((element, index) => {
+  const visibleElements = template.elements
+    .map((element, index) => ({ element, index }))
+    .filter(({ element }) => {
+      if (!filterQuery) {
+        return true;
+      }
+      const typeMeta = TARGET_TEMPLATE_ELEMENT_TYPES.find((entry) => entry.value === element.type);
+      return [
+        typeMeta?.label,
+        element.type,
+        element.kind,
+        element.offsetX,
+        element.offsetZ,
+        element.heading
+      ].some((value) => String(value ?? "").toLowerCase().includes(filterQuery));
+    });
+
+  els.templateDrawerCount.textContent = filterQuery
+    ? `${visibleElements.length} of ${elementCount} objects`
+    : `${elementCount} ${elementCount === 1 ? "object" : "objects"}`;
+
+  els.configTemplateElements.innerHTML = visibleElements.length
+    ? visibleElements.map(({ element, index }) => {
         const typeMeta = TARGET_TEMPLATE_ELEMENT_TYPES.find((entry) => entry.value === element.type);
         return `
           <div class="mission-card">
-            <div class="mission-card__title">${typeMeta?.label || element.type}</div>
+            <div class="mission-card__title">${String(index + 1).padStart(2, "0")} · ${typeMeta?.label || element.type}</div>
             <div class="mission-card__meta">Offset X ${element.offsetX}, Z ${element.offsetZ} | Heading ${element.heading}&deg; | ${element.kind}</div>
             <div class="inline-actions">
               <button class="ghost" data-template-remove-index="${index}">Remove</button>
@@ -863,11 +902,37 @@ function renderTemplateElements() {
           </div>
         `;
       }).join("")
-    : `<div class="mission-card"><div class="mission-card__meta">No elements yet. Add vehicles or factory objects with relative offsets.</div></div>`;
+    : `<div class="mission-card"><div class="mission-card__meta">${elementCount ? "No objects match this filter." : "No elements yet. Add vehicles or factory objects with relative offsets."}</div></div>`;
+}
+
+let templateDrawerReturnFocus = null;
+
+function setTemplateElementsDrawerOpen(isOpen) {
+  if (!els.templateElementsDrawer || !els.templateElementsBackdrop) {
+    return;
+  }
+
+  if (isOpen) {
+    templateDrawerReturnFocus = document.activeElement;
+  }
+
+  els.templateElementsDrawer.classList.toggle("is-open", isOpen);
+  els.templateElementsBackdrop.classList.toggle("is-open", isOpen);
+  els.templateElementsDrawer.setAttribute("aria-hidden", String(!isOpen));
+  els.templateElementsBackdrop.setAttribute("aria-hidden", String(!isOpen));
+  els.openTemplateElements.setAttribute("aria-expanded", String(isOpen));
+
+  if (isOpen) {
+    els.templateElementsFilter.focus();
+  } else if (templateDrawerReturnFocus instanceof HTMLElement) {
+    templateDrawerReturnFocus.focus();
+    templateDrawerReturnFocus = null;
+  }
 }
 
 function loadTemplateIntoEditor(templateId) {
   state.activeTemplateId = templateId || "";
+  els.templateElementsFilter.value = "";
   const template = currentEditingTemplate();
   if (!template) {
     resetTemplateEditor();
@@ -2456,6 +2521,9 @@ function renderConfigView() {
 }
 
 function showView(view) {
+  if (view !== "config") {
+    setTemplateElementsDrawerOpen(false);
+  }
   state.activeView = view;
   document.body.classList.toggle("config-mode", view === "config" || view === "advanced");
   els.campaignView.classList.toggle("hidden", view !== "campaign");
@@ -3984,6 +4052,15 @@ function bindEvents() {
   });
   els.saveTargetTemplate.addEventListener("click", saveTargetTemplateDefinition);
   els.deleteTargetTemplate.addEventListener("click", deleteTargetTemplateDefinition);
+  els.openTemplateElements.addEventListener("click", () => setTemplateElementsDrawerOpen(true));
+  els.closeTemplateElements.addEventListener("click", () => setTemplateElementsDrawerOpen(false));
+  els.templateElementsBackdrop.addEventListener("click", () => setTemplateElementsDrawerOpen(false));
+  els.templateElementsFilter.addEventListener("input", renderTemplateElements);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && els.templateElementsDrawer.classList.contains("is-open")) {
+      setTemplateElementsDrawerOpen(false);
+    }
+  });
   els.configTemplateElements.addEventListener("click", (event) => {
     const button = event.target.closest("[data-template-remove-index]");
     if (!button) {

@@ -1,6 +1,6 @@
 {
   "name": "nuclear-option-campaign",
-  "version": "1.0.0-beta",
+  "version": "1.0.0",
   "description": "Electron prototype for authoring dynamic Nuclear Option campaigns.",
   "author": "Peter G. Robbins",
   "main": "src/main.js",
@@ -45,7 +45,7 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Nuclear Option Campaign Generator",
-      "artifactName": "NOCG Setup Beta 1.0.${ext}"
+      "artifactName": "NOCG Setup ${version}.${ext}"
     }
   }
 }

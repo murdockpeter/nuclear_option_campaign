@@ -338,7 +338,20 @@
                 </div>
                 <input class="hidden" id="import-target-template-file" type="file" accept=".json,application/json" />
 
-                <div class="mission-list config-template-elements" id="config-template-elements"></div>
+                <button
+                  class="template-drawer-trigger"
+                  id="open-template-elements"
+                  type="button"
+                  aria-controls="template-elements-drawer"
+                  aria-expanded="false"
+                >
+                  <span>
+                    <strong>Template Objects</strong>
+                    <small>Review and remove placed objects</small>
+                  </span>
+                  <span class="template-drawer-trigger__count" id="template-element-count">0</span>
+                  <span class="template-drawer-trigger__arrow" aria-hidden="true">&#8592;</span>
+                </button>
               </div>
 
               <div class="workspace-card workspace-card--full">
@@ -385,6 +398,34 @@
 
               <button class="primary" id="save-config-location">Save Location To CSV</button>
             </div>
+
+            <div class="template-drawer-backdrop" id="template-elements-backdrop" aria-hidden="true"></div>
+            <aside
+              class="template-drawer"
+              id="template-elements-drawer"
+              role="dialog"
+              aria-modal="false"
+              aria-labelledby="template-elements-title"
+              aria-hidden="true"
+            >
+              <div class="template-drawer__header">
+                <div>
+                  <div class="workspace-card__label">Current Template</div>
+                  <h3 id="template-elements-title">Template Objects</h3>
+                  <p id="template-elements-subtitle">Review the objects and relative positions in this layout.</p>
+                </div>
+                <button class="template-drawer__close" id="close-template-elements" type="button" aria-label="Close template objects">&times;</button>
+              </div>
+              <div class="template-drawer__summary">
+                <span id="template-drawer-count">0 objects</span>
+                <span>Relative to objective center</span>
+              </div>
+              <label class="template-drawer__filter" for="template-elements-filter">
+                <span class="hidden">Filter template objects</span>
+                <input id="template-elements-filter" type="search" aria-label="Filter template objects" placeholder="Filter by object type, offset, or kind..." autocomplete="off" />
+              </label>
+              <div class="mission-list config-template-elements" id="config-template-elements"></div>
+            </aside>
           </div>
 
           <div class="advanced-body hidden" id="advanced-view">
