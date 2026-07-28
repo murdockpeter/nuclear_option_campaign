@@ -6,6 +6,7 @@
   "main": "src/main.js",
   "scripts": {
     "start": "set ELECTRON_RUN_AS_NODE=& electron .",
+    "validate:assets": "node scripts/validate_game_assets.js",
     "dist": "electron-builder --win nsis",
     "dist:dir": "electron-builder --win dir"
   },

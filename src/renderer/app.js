@@ -141,6 +141,54 @@ const AIRCRAFT_TEMPLATE_BY_TYPE = {
   }
 };
 
+function gameAssetPresets() {
+  return state.catalog?.gameAssets?.presets || {};
+}
+
+function currentDefaultFactionSupplies() {
+  return gameAssetPresets().defaultFactionSupplies || DEFAULT_FACTION_SUPPLIES;
+}
+
+function currentObjectiveProfileTypes() {
+  return gameAssetPresets().objectiveProfiles || OBJECTIVE_PROFILE_TYPES;
+}
+
+function currentFactoryProductionTypes() {
+  return gameAssetPresets().factoryProductionTypes || FACTORY_PRODUCTION_TYPES;
+}
+
+function currentAirPatrolTypes() {
+  return gameAssetPresets().airPatrolTypes || AIR_PATROL_TYPES;
+}
+
+function currentAircraftTemplate(type) {
+  return (
+    state.catalog?.gameAssets?.aircraftTemplates?.[type] ||
+    AIRCRAFT_TEMPLATE_BY_TYPE[type] ||
+    AIRCRAFT_TEMPLATE_BY_TYPE.SmallFighter1
+  );
+}
+
+function targetTemplateElementTypes() {
+  const categories = state.catalog?.gameAssets?.categories;
+  if (!categories) {
+    return TARGET_TEMPLATE_ELEMENT_TYPES;
+  }
+
+  return [
+    ...(categories.vehicles || []).map((entry) => ({
+      value: entry.type,
+      label: entry.label,
+      kind: "vehicle"
+    })),
+    ...(categories.buildings || []).map((entry) => ({
+      value: entry.type,
+      label: entry.label,
+      kind: "building"
+    }))
+  ];
+}
+
 const els = {
   scanMeta: document.getElementById("scan-meta"),
   installPathReadout: document.getElementById("install-path-readout"),
@@ -304,10 +352,21 @@ function normalizeName(value) {
   return (value || "").trim().toLowerCase();
 }
 
-function cloneSupplies(supplies = DEFAULT_FACTION_SUPPLIES) {
-  return supplies
+function cloneSupplies(supplies = null) {
+  return (supplies || currentDefaultFactionSupplies())
     .filter((entry) => entry?.unitType && entry.unitType !== "Revoker")
     .map((entry) => ({ unitType: entry.unitType, count: Number(entry.count || 0) }));
+}
+
+function mergeCurrentDefaultSupplies(supplies = []) {
+  const merged = cloneSupplies(supplies);
+  const knownTypes = new Set(merged.map((entry) => entry.unitType));
+  for (const entry of currentDefaultFactionSupplies()) {
+    if (!knownTypes.has(entry.unitType)) {
+      merged.push({ unitType: entry.unitType, count: Number(entry.count || 0) });
+    }
+  }
+  return merged;
 }
 
 function cloneWaypoints(waypoints = []) {
@@ -526,7 +585,7 @@ function getPersistedFactionState(factionName) {
       startingBalance: Number(existing.startingBalance ?? 250000),
       reserveAirframes: Number(existing.reserveAirframes ?? 72),
       extraReservesPerPlayer: Number(existing.extraReservesPerPlayer ?? 12),
-      supplies: cloneSupplies(existing.supplies?.length ? existing.supplies : DEFAULT_FACTION_SUPPLIES)
+      supplies: mergeCurrentDefaultSupplies(existing.supplies || [])
     };
   }
 
@@ -535,7 +594,7 @@ function getPersistedFactionState(factionName) {
     startingBalance: Number(els.startingCash?.value || 250000),
     reserveAirframes: 72,
     extraReservesPerPlayer: 12,
-    supplies: cloneSupplies(DEFAULT_FACTION_SUPPLIES)
+    supplies: cloneSupplies()
   };
 }
 
@@ -577,7 +636,7 @@ function headingFromRotation(rotation = {}) {
 }
 
 function findTemplateElementMeta(type) {
-  return TARGET_TEMPLATE_ELEMENT_TYPES.find((entry) => entry.value === type) || null;
+  return targetTemplateElementTypes().find((entry) => entry.value === type) || null;
 }
 
 function normalizeImportedTemplateElements(elements = []) {
@@ -807,7 +866,7 @@ function resetTemplateEditor() {
     els.configTemplateName.value = "";
   }
   if (els.configTemplateElementType) {
-    els.configTemplateElementType.value = TARGET_TEMPLATE_ELEMENT_TYPES[0].value;
+    els.configTemplateElementType.value = targetTemplateElementTypes()[0]?.value || "";
   }
   if (els.configTemplateElementHeading) {
     els.configTemplateElementHeading.value = "0";
@@ -843,7 +902,7 @@ function renderTargetTemplateOptions() {
   els.configExistingTemplate.value = templates.some((entry) => entry.id === currentTemplateValue) ? currentTemplateValue : (state.activeTemplateId || "");
 
   if (!els.configTemplateElementType.options.length) {
-    TARGET_TEMPLATE_ELEMENT_TYPES.forEach((type) => {
+    targetTemplateElementTypes().forEach((type) => {
       els.configTemplateElementType.appendChild(createOption(type.value, type.label));
     });
   }
@@ -874,7 +933,7 @@ function renderTemplateElements() {
       if (!filterQuery) {
         return true;
       }
-      const typeMeta = TARGET_TEMPLATE_ELEMENT_TYPES.find((entry) => entry.value === element.type);
+      const typeMeta = targetTemplateElementTypes().find((entry) => entry.value === element.type);
       return [
         typeMeta?.label,
         element.type,
@@ -891,7 +950,7 @@ function renderTemplateElements() {
 
   els.configTemplateElements.innerHTML = visibleElements.length
     ? visibleElements.map(({ element, index }) => {
-        const typeMeta = TARGET_TEMPLATE_ELEMENT_TYPES.find((entry) => entry.value === element.type);
+        const typeMeta = targetTemplateElementTypes().find((entry) => entry.value === element.type);
         return `
           <div class="mission-card">
             <div class="mission-card__title">${String(index + 1).padStart(2, "0")} · ${typeMeta?.label || element.type}</div>
@@ -1901,6 +1960,11 @@ function updateLocationOwnerInState(mapKey, name, initialOwner) {
 
 function renderStats() {
   const mapCount = state.catalog?.maps?.length || 0;
+  const gameAssets = state.catalog?.gameAssets;
+  const unitAssetCount = ["aircraft", "vehicles", "ships", "buildings", "containers"].reduce(
+    (count, category) => count + Number(gameAssets?.categories?.[category]?.length || 0),
+    0
+  );
   const configuredCount = Object.values(state.catalog?.configuredLocationsByMap || {}).reduce((count, items) => count + items.length, 0);
   const readyCoords = Object.values(state.catalog?.configuredLocationsByMap || {}).reduce((count, items) => {
     return count + items.filter((item) => item.gameWorldX != null && item.gameWorldZ != null).length;
@@ -1910,6 +1974,8 @@ function renderStats() {
     <div class="stat-card"><strong>${mapCount}</strong><span>Supported Maps</span></div>
     <div class="stat-card"><strong>${configuredCount}</strong><span>Named Locations</span></div>
     <div class="stat-card"><strong>${readyCoords}</strong><span>Ready Coordinates</span></div>
+    <div class="stat-card"><strong>${unitAssetCount}</strong><span>Game Unit Assets</span></div>
+    <div class="stat-card"><strong>${gameAssets?.source?.steamBuildId || "-"}</strong><span>Steam Build</span></div>
   `;
 }
 
@@ -2648,7 +2714,7 @@ function applyRandomness(x, z, settings, baseScale = 100) {
 function createFactoryBuilding(type, faction, name, x, y, z, angleDegrees, productionType) {
   const radians = (angleDegrees * Math.PI) / 180;
   const half = radians / 2;
-  return {
+  const building = {
     type,
     faction,
     UniqueName: name,
@@ -2660,12 +2726,17 @@ function createFactoryBuilding(type, faction, name, x, y, z, angleDegrees, produ
     spawnTiming: "",
     capturable: false,
     Airbase: "",
-    factoryOptions: {
-      productionType,
-      productionTime: 675
-    },
     placementOffset: 0
   };
+
+  if (FACTORY_BUILDING_TYPES.includes(type) && productionType) {
+    building.factoryOptions = {
+      productionType,
+      productionTime: 675
+    };
+  }
+
+  return building;
 }
 
 function buildResistanceGroundTypes(settings, options = {}) {
@@ -2936,7 +3007,8 @@ function buildObjectiveDefenseVehicles(objectiveLocation, settings) {
 
   if (!objectiveTypes.length) {
     const profileKey = els.objectiveUnitProfile.value || "mixed";
-    const profileTypes = OBJECTIVE_PROFILE_TYPES[profileKey] || OBJECTIVE_PROFILE_TYPES.mixed;
+    const objectiveProfiles = currentObjectiveProfileTypes();
+    const profileTypes = objectiveProfiles[profileKey] || objectiveProfiles.mixed;
     const intensityLevel = Number(els.objectiveIntensity.value || 1);
     const unitCount = OBJECTIVE_FORCE_COUNTS[intensityLevel] || OBJECTIVE_FORCE_COUNTS[1];
     for (let index = 0; index < unitCount; index += 1) {
@@ -2979,7 +3051,8 @@ function buildObjectiveFactoryBuildings(objectiveLocation, settings) {
     const radians = (angle * Math.PI) / 180;
     const randomized = applyRandomness(Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius, Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius, settings, 120);
     const type = FACTORY_BUILDING_TYPES[index % FACTORY_BUILDING_TYPES.length];
-    const productionType = FACTORY_PRODUCTION_TYPES[index % FACTORY_PRODUCTION_TYPES.length];
+    const productionTypes = currentFactoryProductionTypes();
+    const productionType = productionTypes[index % productionTypes.length];
     return createFactoryBuilding(
       type,
       objectiveLocation.initialOwner,
@@ -3092,7 +3165,7 @@ function buildObjectiveAirPatrolVehicles(objectiveLocation, settings) {
       const spawn = applyRandomness(Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius, Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius, settings, 120);
       vehicles.push(
         createDefenderVehicle(
-          AIR_PATROL_TYPES.helicopters[index % AIR_PATROL_TYPES.helicopters.length],
+          currentAirPatrolTypes().helicopters[index % currentAirPatrolTypes().helicopters.length],
           objectiveLocation.initialOwner,
           `objective_helo_patrol_${sanitizeIdFragment(objectiveLocation.name)}_${index + 1}`,
           spawn.x,
@@ -3121,7 +3194,7 @@ function buildObjectiveAirPatrolVehicles(objectiveLocation, settings) {
       const spawn = applyRandomness(Number(objectiveLocation.gameWorldX) + Math.cos(radians) * radius, Number(objectiveLocation.gameWorldZ) + Math.sin(radians) * radius, settings, 180);
       vehicles.push(
         createDefenderVehicle(
-          AIR_PATROL_TYPES.fixedWing[index % AIR_PATROL_TYPES.fixedWing.length],
+          currentAirPatrolTypes().fixedWing[index % currentAirPatrolTypes().fixedWing.length],
           objectiveLocation.initialOwner,
           `objective_fixed_patrol_${sanitizeIdFragment(objectiveLocation.name)}_${index + 1}`,
           spawn.x,
@@ -3146,9 +3219,7 @@ function buildObjectiveAirPatrolVehicles(objectiveLocation, settings) {
 }
 
 function createAircraftUnit(type, faction, uniqueName, x, y, z, headingDegrees, options = {}) {
-  const template =
-    AIRCRAFT_TEMPLATE_BY_TYPE[type] ||
-    AIRCRAFT_TEMPLATE_BY_TYPE.SmallFighter1;
+  const template = currentAircraftTemplate(type);
   const radians = (headingDegrees * Math.PI) / 180;
   const altitude = Number(options.altitude ?? y);
   const startingSpeed =
@@ -3177,7 +3248,6 @@ function createAircraftUnit(type, faction, uniqueName, x, y, z, headingDegrees, 
     spawnTiming: "",
     playerControlled: false,
     playerControlledPriority: 0,
-    loadout: JSON.parse(JSON.stringify(template.loadout)),
     savedLoadout: JSON.parse(JSON.stringify(template.savedLoadout)),
     livery: template.livery,
     liveryType: template.liveryType,
@@ -3185,7 +3255,10 @@ function createAircraftUnit(type, faction, uniqueName, x, y, z, headingDegrees, 
     fuel: template.fuel,
     skill: template.skill,
     bravery: template.bravery,
-    startingSpeed
+    startingSpeed,
+    ...(template.loadout
+      ? { loadout: JSON.parse(JSON.stringify(template.loadout)) }
+      : {})
   };
 }
 
@@ -3200,6 +3273,7 @@ function buildObjectiveAirPatrolAircraft(objectiveLocation, settings) {
 
   if (helosEnabled) {
     const helicopterRadiusBase = Number(settings.patrolPlan.helicopterPatrolRadius || 900);
+    const helicopterTypes = currentAirPatrolTypes().helicopters;
     for (let index = 0; index < settings.patrolPlan.helicopterPatrols; index += 1) {
       const angle = index * 120 + 35;
       const radius = helicopterRadiusBase + (index % 2) * 140;
@@ -3212,7 +3286,7 @@ function buildObjectiveAirPatrolAircraft(objectiveLocation, settings) {
       );
       aircraft.push(
         createAircraftUnit(
-          "AttackHelo1",
+          helicopterTypes[index % helicopterTypes.length],
           objectiveLocation.initialOwner,
           `objective_air_helo_${sanitizeIdFragment(objectiveLocation.name)}_${index + 1}`,
           spawn.x,
@@ -3230,7 +3304,7 @@ function buildObjectiveAirPatrolAircraft(objectiveLocation, settings) {
 
   if (fixedWingEnabled) {
     const fixedWingRadiusBase = Number(settings.patrolPlan.fixedWingPatrolRadius || 2600);
-    const fixedWingTypes = ["SmallFighter1", "Multirole1"];
+    const fixedWingTypes = currentAirPatrolTypes().fixedWing;
     for (let index = 0; index < settings.patrolPlan.fixedWingPatrols; index += 1) {
       const angle = index * 95 + 20;
       const radius = fixedWingRadiusBase + (index % 3) * 320;
@@ -3288,7 +3362,7 @@ function buildObjectiveTemplateElements(objectiveLocation) {
           Number(objectiveLocation.gameWorldY ?? 0),
           z,
           heading,
-          FACTORY_PRODUCTION_TYPES[elementIndex % FACTORY_PRODUCTION_TYPES.length]
+          currentFactoryProductionTypes()[elementIndex % currentFactoryProductionTypes().length]
         )
       );
     } else {
@@ -3695,7 +3769,7 @@ async function addTemplateElementToEditor() {
   }
 
   const type = els.configTemplateElementType.value;
-  const typeMeta = TARGET_TEMPLATE_ELEMENT_TYPES.find((entry) => entry.value === type);
+  const typeMeta = targetTemplateElementTypes().find((entry) => entry.value === type);
   templates[templateIndex].elements.push({
     id: `${sanitizeIdFragment(type)}_${Date.now()}`,
     type,

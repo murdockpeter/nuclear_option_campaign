@@ -1,0 +1,2565 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-28T01:19:28.501794+00:00",
+  "source": {
+    "method": "installed-game TextAssets: built-in missions, UnitValues, UnitParts, MountValues",
+    "steamBuildId": "24403978",
+    "gameBuildHash": "797b86fe892",
+    "unityVersion": "2022.3.62f2",
+    "unitValuesVersion": "0.30.2",
+    "builtInMissionCount": 39,
+    "builtInMissions": [
+      "01. Convoy Attack",
+      "02. Round Up",
+      "03. Point Blank",
+      "04. Cruise Missile Interception",
+      "05. Furball",
+      "06. Bridge Defense",
+      "07. Blackout",
+      "08. Infiltration",
+      "09. Depot Strike",
+      "10. Dustbowl",
+      "11. Expedition",
+      "12. Shifting Tide",
+      "13. Reprisal",
+      "14. To Sink a Carrier",
+      "15. Breaking the Atoll",
+      "Altercation",
+      "Altercation Co-op as BDF",
+      "Altercation Co-op as PALA",
+      "Breakout",
+      "Carrier Duel",
+      "Confrontation",
+      "Confrontation Co-op as BDF",
+      "Confrontation Co-op as PALA",
+      "Domination",
+      "Domination Co-op as BDF",
+      "Domination Co-op as PALA",
+      "Escalation",
+      "Escalation Co-op as BDF",
+      "Escalation Co-op as PALA",
+      "Free Flight - Heartland",
+      "Free Flight - Ignus Archipelago",
+      "Terminal Control",
+      "Terminal Control Co-op as BDF",
+      "Terminal Control Co-op as PALA",
+      "Tutorial 1 - Taxi and Takeoff",
+      "Tutorial 2 - Landing",
+      "Tutorial 3 - Targeting and Weapons",
+      "Tutorial 4 - Infrared Countermeasures",
+      "Tutorial 5 - Radar Countermeasures"
+    ],
+    "notes": [
+      "Mission JSON identifiers are authoritative for scenario export.",
+      "The embedded UnitValues table can lag the executable; current labels fill those gaps.",
+      "FastBomber1 is retained as a legacy SFB-81 Darkreach identifier but is not used for new supplies."
+    ]
+  },
+  "categories": {
+    "aircraft": [
+      {
+        "type": "AttackHelo1",
+        "label": "SAH-46 Chicane",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 12
+      },
+      {
+        "type": "CAS1",
+        "label": "A-19 Brawler",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "COIN",
+        "label": "CI-22 Cricket",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 18
+      },
+      {
+        "type": "Darkreach",
+        "label": "SFB-81 Darkreach",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 9
+      },
+      {
+        "type": "EW1",
+        "label": "EW-25 Medusa",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 8
+      },
+      {
+        "type": "FastBomber1",
+        "label": "SFB-81 Darkreach (legacy identifier)",
+        "legacy": true,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "Fighter1",
+        "label": "FS-12 Revoker",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 8
+      },
+      {
+        "type": "Multirole1",
+        "label": "KR-67 Ifrit",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 5
+      },
+      {
+        "type": "QuadVTOL1",
+        "label": "VL-49 Tarantula",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 10
+      },
+      {
+        "type": "SmallFighter1",
+        "label": "FS-20 Vortex",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 4
+      },
+      {
+        "type": "UtilityHelo1",
+        "label": "UH-90 Ibis",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 6
+      },
+      {
+        "type": "VTOLTrainer1",
+        "label": "Alkyon AB-4",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 8
+      },
+      {
+        "type": "trainer",
+        "label": "T/A-30 Compass",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 23
+      }
+    ],
+    "vehicles": [
+      {
+        "type": "6x6_1_AA",
+        "label": "AFV6 AA",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 9
+      },
+      {
+        "type": "6x6_1_APC",
+        "label": "AFV6 APC",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "6x6_1_AT",
+        "label": "AFV6 AT",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 2
+      },
+      {
+        "type": "6x6_1_IFV",
+        "label": "AFV6 IFV",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 4
+      },
+      {
+        "type": "AFV8_APC",
+        "label": "AFV8 APC",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 16
+      },
+      {
+        "type": "AFV8_IFV",
+        "label": "AFV8 IFV",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 20
+      },
+      {
+        "type": "AFV8_SAM",
+        "label": "AFV8 Mobile Air Defense",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 20
+      },
+      {
+        "type": "CRAMTrailer1",
+        "label": "CRAM Trailer",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 11
+      },
+      {
+        "type": "HLT-FC",
+        "label": "HLT Fire Control Truck",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 5
+      },
+      {
+        "type": "HLT-FT",
+        "label": "HLT Fuel Tanker",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 30
+      },
+      {
+        "type": "HLT-L",
+        "label": "HLT Flatbed",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 22
+      },
+      {
+        "type": "HLT-M",
+        "label": "HLT Munitions Truck",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 27
+      },
+      {
+        "type": "HLT-MART",
+        "label": "HLT Mobile Artillery",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 3
+      },
+      {
+        "type": "HLT-R",
+        "label": "HLT Radar Truck",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 25
+      },
+      {
+        "type": "HLT-T",
+        "label": "HLT Tractor",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 21
+      },
+      {
+        "type": "LCV45",
+        "label": "LCV45 Recon Truck",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 27
+      },
+      {
+        "type": "LaserTrailer1",
+        "label": "Laser CIWS Trailer",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 6
+      },
+      {
+        "type": "LightTruck1_AA",
+        "label": "LCV25 AA",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 5
+      },
+      {
+        "type": "LightTruck1_AT",
+        "label": "LCV25 AT",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 8
+      },
+      {
+        "type": "Linebreaker_APC",
+        "label": "Linebreaker APC",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 19
+      },
+      {
+        "type": "Linebreaker_IFV",
+        "label": "Linebreaker IFV",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 22
+      },
+      {
+        "type": "Linebreaker_SAM",
+        "label": "Linebreaker SAM",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 24
+      },
+      {
+        "type": "MBT",
+        "label": "Type-12 MBT",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 15
+      },
+      {
+        "type": "MBT1",
+        "label": "Spearhead MBT",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 15
+      },
+      {
+        "type": "RadarSAM1",
+        "label": "T9K41 Boltstrike",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 20
+      },
+      {
+        "type": "SAMTrailer1",
+        "label": "StratoLance R9 Launcher",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 14
+      },
+      {
+        "type": "SPAAG1",
+        "label": "AeroSentry SPAAG",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 19
+      },
+      {
+        "type": "SPAAG2",
+        "label": "FGA-57 Anvil",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 20
+      },
+      {
+        "type": "Truck2-CRAM",
+        "label": "MSV CRAM",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 9
+      },
+      {
+        "type": "Truck2-FC",
+        "label": "MSV Fire Control",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 6
+      },
+      {
+        "type": "Truck2-FT",
+        "label": "MSV Fuel Tanker",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 14
+      },
+      {
+        "type": "Truck2-L",
+        "label": "MSV Flatbed",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 4
+      },
+      {
+        "type": "Truck2-LADS",
+        "label": "MSV Laser Air Defence",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 4
+      },
+      {
+        "type": "Truck2-M",
+        "label": "MSV Munitions Truck",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 15
+      },
+      {
+        "type": "Truck2-MLRS",
+        "label": "MSV MLRS",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 5
+      },
+      {
+        "type": "Truck2-MRAP",
+        "label": "MSV MRAP",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 13
+      },
+      {
+        "type": "Truck2-R",
+        "label": "MSV Radar Truck",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 15
+      },
+      {
+        "type": "Truck2-RSAM",
+        "label": "MSV Stratolance",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 9
+      },
+      {
+        "type": "Truck2-T",
+        "label": "MSV Tractor",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 3
+      },
+      {
+        "type": "Truck2-TBM",
+        "label": "MSV Ballistic Missile Launcher",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 6
+      },
+      {
+        "type": "Truck2-TBM-N",
+        "label": "MSV Nuclear Ballistic Missile Launcher",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 6
+      },
+      {
+        "type": "UGV1_SAM",
+        "label": "Hexhound SAM",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "UGV1_grenade",
+        "label": "Hexhound GMG",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 3
+      },
+      {
+        "type": "UGVDozer1",
+        "label": "M12 Jackknife",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 4
+      }
+    ],
+    "ships": [
+      {
+        "type": "AssaultCarrier1",
+        "label": "Annex Class Carrier",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 11
+      },
+      {
+        "type": "Corvette1",
+        "label": "Shard Class Corvette",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 16
+      },
+      {
+        "type": "Destroyer1",
+        "label": "Dynamo Class Destroyer",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 7
+      },
+      {
+        "type": "FleetCarrier1",
+        "label": "Hyperion Class Carrier",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 10
+      },
+      {
+        "type": "Frigate1",
+        "label": "Argus Class Frigate",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 9
+      },
+      {
+        "type": "LandingCraft1",
+        "label": "OTB-31 landing craft",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 3
+      },
+      {
+        "type": "PatrolBoat1",
+        "label": "Surf Class Patrol Boat",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 11
+      },
+      {
+        "type": "SmallCarrier1",
+        "label": "Cursor Class LFD",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 9
+      }
+    ],
+    "buildings": [
+      {
+        "type": "Emplacement1_23mm",
+        "label": "Static 23mm AAA Emplacement",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 12
+      },
+      {
+        "type": "Emplacement1_ATGM",
+        "label": "Static ATGM Emplacement",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 10
+      },
+      {
+        "type": "Emplacement1_MANPADS",
+        "label": "Static MANPADS Emplacement",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 9
+      },
+      {
+        "type": "Emplacement1_MG",
+        "label": "Static Machine Gun Emplacement",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 7
+      },
+      {
+        "type": "Helipad",
+        "label": "Helipad",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 11
+      },
+      {
+        "type": "VehicleDepot1",
+        "label": "Vehicle Depot",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 20
+      },
+      {
+        "type": "ammoDump",
+        "label": "Ammo Dump",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 9
+      },
+      {
+        "type": "ammunitionBunker",
+        "label": "Ammunition Bunker",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 9
+      },
+      {
+        "type": "controlTower1",
+        "label": "Control Tower",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "enrichmentPlant1",
+        "label": "Enrichment Plant",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 6
+      },
+      {
+        "type": "factory_large",
+        "label": "Large Factory",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 20
+      },
+      {
+        "type": "factory_tall",
+        "label": "Vertical Factory",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 19
+      },
+      {
+        "type": "fuelTank1",
+        "label": "Fuel Tank",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 2
+      },
+      {
+        "type": "gabionBunker1",
+        "label": "Gabion Bunker",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 8
+      },
+      {
+        "type": "guardTower1",
+        "label": "Guard Tower",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 9
+      },
+      {
+        "type": "hangar_med",
+        "label": "Medium Aircraft Hangar",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 6
+      },
+      {
+        "type": "pillbox",
+        "label": "Pillbox",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 18
+      },
+      {
+        "type": "radarStation1",
+        "label": "Radar Station",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 15
+      },
+      {
+        "type": "refinery_main",
+        "label": "Refinery Structure",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 11
+      },
+      {
+        "type": "revetment1",
+        "label": "Aircraft Revetment",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 6
+      },
+      {
+        "type": "shelter1",
+        "label": "Hardened Aircraft Shelter",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 5
+      },
+      {
+        "type": "storageTank",
+        "label": "Storage Tank",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 16
+      }
+    ],
+    "containers": [
+      {
+        "type": "FuelContainer3",
+        "label": "Fuel Container",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 7
+      },
+      {
+        "type": "MunitionsContainer1",
+        "label": "Munitions Container",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 5
+      },
+      {
+        "type": "MunitionsPallet1",
+        "label": "Munitions Pallet",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 5
+      }
+    ],
+    "missiles": [
+      {
+        "type": "bomb_125_1",
+        "label": "bomb_125_1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "bomb_250_1",
+        "label": "bomb_250_1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      }
+    ],
+    "scenery": [
+      {
+        "type": "Bend4",
+        "label": "Bend4",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "Column1",
+        "label": "Column1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 3
+      },
+      {
+        "type": "ConcreteBarrier1",
+        "label": "ConcreteBarrier1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 4
+      },
+      {
+        "type": "ConcretePad1",
+        "label": "ConcretePad1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 10
+      },
+      {
+        "type": "ConcreteWall1",
+        "label": "ConcreteWall1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 8
+      },
+      {
+        "type": "ConcreteWall1x5",
+        "label": "ConcreteWall1x5",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 8
+      },
+      {
+        "type": "Cone1",
+        "label": "Cone1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "Container1",
+        "label": "Container1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "Container2",
+        "label": "Container2",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "Container3",
+        "label": "Container3",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "Container4",
+        "label": "Container4",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 2
+      },
+      {
+        "type": "ContainerStack1",
+        "label": "ContainerStack1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 2
+      },
+      {
+        "type": "Cylinder1",
+        "label": "Cylinder1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 2
+      },
+      {
+        "type": "FlareStack1",
+        "label": "FlareStack1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "HarborCrane",
+        "label": "HarborCrane",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "Hulldown1",
+        "label": "Hulldown1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 12
+      },
+      {
+        "type": "Hulldown2",
+        "label": "Hulldown2",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 15
+      },
+      {
+        "type": "Platform_flat",
+        "label": "Flat Platform",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 6
+      },
+      {
+        "type": "Platform_large",
+        "label": "Large Platform",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 6
+      },
+      {
+        "type": "Platform_small",
+        "label": "Small Platform",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 14
+      },
+      {
+        "type": "Platform_small_columns",
+        "label": "Platform_small_columns",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 3
+      },
+      {
+        "type": "TowerCrane",
+        "label": "TowerCrane",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 1
+      },
+      {
+        "type": "Truss1",
+        "label": "Truss1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 2
+      },
+      {
+        "type": "camoNet1",
+        "label": "camoNet1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 7
+      },
+      {
+        "type": "coolingTower",
+        "label": "coolingTower",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 3
+      },
+      {
+        "type": "gabionWall_20x3x3",
+        "label": "gabionWall_20x3x3",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 12
+      },
+      {
+        "type": "hesco5",
+        "label": "hesco5",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 5
+      },
+      {
+        "type": "pipeline1",
+        "label": "pipeline1",
+        "legacy": false,
+        "usedByBuiltInMissionCount": 5
+      }
+    ]
+  },
+  "weaponMounts": [
+    {
+      "type": "12.7mmRotaryTurret",
+      "label": "12.7mmRotaryTurret",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "12.7mm_internal",
+      "label": "12.7mm_internal",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "6x6_1_AAx1",
+      "label": "AFV6 AA",
+      "weapon": "",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "6x6_1_APCx1",
+      "label": "AFV6 APC",
+      "weapon": "",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "6x6_1_ATx1",
+      "label": "AFV6 AT",
+      "weapon": "",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "6x6_1_IFVx1",
+      "label": "AFV6 IFV",
+      "weapon": "",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM1_double",
+      "label": "MMR-S3 [IR] x2",
+      "weapon": "MMR-S3[IR]",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM1_double_internal",
+      "label": "MMR-S3 [IR] x2",
+      "weapon": "MMR-S3[IR]",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM1_internalx3",
+      "label": "MMR-S3 [IR] x3",
+      "weapon": "MMR-S3[IR]",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM1_single",
+      "label": "MMR-S3 [IR]",
+      "weapon": "MMR-S3[IR]",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM1_single_internal",
+      "label": "MMR-S3 [IR]",
+      "weapon": "MMR-S3[IR]",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM1_triple",
+      "label": "MMR-S3 [IR] x3",
+      "weapon": "MMR-S3[IR]",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM2_double",
+      "label": "AAM-29 Scythe [R] x2",
+      "weapon": "AAM-29 Scythe [R]",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM2_double_internal",
+      "label": "AAM-29 Scythe [R] x2",
+      "weapon": "AAM-29 Scythe [R]",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM2_single",
+      "label": "AAM-29 Scythe [R]",
+      "weapon": "AAM-29 Scythe [R]",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM2_single_internal",
+      "label": "AAM-29 Scythe [R]",
+      "weapon": "AAM-29 Scythe [R]",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM2_triple",
+      "label": "AAM-29 Scythe [R] x3",
+      "weapon": "AAM-29 Scythe [R]",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM2_triple_internal",
+      "label": "AAM-29 Scythe [R] x3",
+      "weapon": "AAM-29 Scythe [R]",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM3_double",
+      "label": "IRM-S2 [IR] x2",
+      "weapon": "IRM-S2[IR]",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM3_double_internal",
+      "label": "IRM-S2 [IR] x2",
+      "weapon": "IRM-S2[IR]",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM3_quad_internal",
+      "label": "IRM-S2 [IR] x4",
+      "weapon": "IRM-S2[IR]",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM3_single",
+      "label": "IRM-S2 [IR]",
+      "weapon": "IRM-S2[IR]",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM3_single_internal",
+      "label": "IRM-S2 [IR]",
+      "weapon": "IRM-S2[IR]",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM3_triple_internal_compact",
+      "label": "IRM-S2 [IR] x3",
+      "weapon": "IRM-S2[IR]",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM3_triple_internal_flat",
+      "label": "IRM-S2 [IR] x3",
+      "weapon": "IRM-S2[IR]",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM4_double",
+      "label": "AAM-36 Scimitar [R] x2",
+      "weapon": "AAM-36 Scimitar [R]",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM4_double_internal",
+      "label": "AAM-36 Scimitar [R]",
+      "weapon": "AAM-36 Scimitar [R]",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM4_double_internal_compact",
+      "label": "AAM-36 Scimitar [R]",
+      "weapon": "AAM-36 Scimitar [R]",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM4_single",
+      "label": "AAM-36 Scimitar [R]",
+      "weapon": "AAM-36 Scimitar [R]",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AAM4_single_internal",
+      "label": "AAM-36 Scimitar [R]",
+      "weapon": "AAM-36 Scimitar [R]",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM1_double",
+      "label": "AGM-48 x2",
+      "weapon": "AGM-48",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM1_double_compact",
+      "label": "AGM-48 x2",
+      "weapon": "AGM-48",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM1_double_line",
+      "label": "AGM1_double_line",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "AGM1_floorLauncher_QuadVTOL1",
+      "label": "AGM-48 x20",
+      "weapon": "AGM-48",
+      "ammo": 20,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM1_quad",
+      "label": "AGM-48 x4",
+      "weapon": "AGM-48",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM1_quad_internal",
+      "label": "AGM-48 x4",
+      "weapon": "AGM-48",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM1_single",
+      "label": "AGM-48",
+      "weapon": "AGM-48",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM1_triple",
+      "label": "AGM-48 x3",
+      "weapon": "AGM-48",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM2_6Pod",
+      "label": "AGM2_6Pod",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "AGM2_internalx4",
+      "label": "AGM2_internalx4",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "AGM_heavy_double",
+      "label": "AGM-68 x2",
+      "weapon": "AGM-68",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM_heavy_internal",
+      "label": "AGM-68",
+      "weapon": "AGM-68",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM_heavy_internalx2",
+      "label": "AGM-68 x2",
+      "weapon": "AGM-68",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM_heavy_internalx4",
+      "label": "AGM-68 x4",
+      "weapon": "AGM-68",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM_heavy_internalx6",
+      "label": "AGM-68 x6",
+      "weapon": "AGM-68",
+      "ammo": 6,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM_heavy_internalx8",
+      "label": "AGM-68 x8",
+      "weapon": "AGM-68",
+      "ammo": 8,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM_heavy_single",
+      "label": "AGM-68",
+      "weapon": "AGM-68",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AGM_heavyx2",
+      "label": "AGM_heavyx2",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "AGM_scanner1_double_compact",
+      "label": "AGM_scanner1_double_compact",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "AIR-2_Genie_single",
+      "label": "AIR-2 Genie",
+      "weapon": "",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "ARM1_double",
+      "label": "ARAD-116 x2",
+      "weapon": "ARAD-116",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "ARM1_internalx2",
+      "label": "ARAD-116 x2",
+      "weapon": "ARAD-116",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "ARM1_internalx4",
+      "label": "ARM1_internalx4",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "ARM1_single",
+      "label": "ARAD-116",
+      "weapon": "ARAD-116",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AShM1_internal",
+      "label": "AShM-300",
+      "weapon": "AShM-300",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AShM1_internalx2",
+      "label": "AShM-300 x2",
+      "weapon": "AShM-300",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AShM1_internalx4_flat",
+      "label": "AShM-300 x4",
+      "weapon": "AShM-300",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "AShM1_internalx4_stack",
+      "label": "AShM-300 x4",
+      "weapon": "AShM-300",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "AShM1_internalx6",
+      "label": "AShM-300 x6",
+      "weapon": "AShM-300",
+      "ammo": 6,
+      "source": "MountValues"
+    },
+    {
+      "type": "AShM1_single",
+      "label": "AShM-300",
+      "weapon": "AShM-300",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AShM2_double",
+      "label": "AGM-99 x2",
+      "weapon": "AGM-99",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AShM2_single",
+      "label": "AGM-99",
+      "weapon": "AGM-99",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "AShM3_internalx2",
+      "label": "AShM-200 x2",
+      "weapon": "AShM-200",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "AShM3_internalx4_flat",
+      "label": "AShM-200 x4",
+      "weapon": "AShM-200",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "AShM3_internalx4_stack",
+      "label": "AShM-200 x4",
+      "weapon": "AShM-200",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "AShM3_single",
+      "label": "AShM-200",
+      "weapon": "AShM-200",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "ATGM1_quad",
+      "label": "ATGM1_quad",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "BallisticMissile1_internalx2",
+      "label": "Piledriver TBM x2",
+      "weapon": "Piledriver TBM",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "CargoHook",
+      "label": "CargoHook",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "CruiseMissile1_internal",
+      "label": "ALM-C450",
+      "weapon": "ALM-C450",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "CruiseMissile1_internalx2",
+      "label": "ALM-C450 x2",
+      "weapon": "ALM-C450",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "CruiseMissile1_internalx3",
+      "label": "ALM-C450 x3",
+      "weapon": "ALM-C450",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "CruiseMissile1_internalx4",
+      "label": "ALM-C450 x4",
+      "weapon": "ALM-C450",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "CruiseMissile1_internalx6",
+      "label": "ALM-C450 x6",
+      "weapon": "ALM-C450",
+      "ammo": 6,
+      "source": "MountValues"
+    },
+    {
+      "type": "CruiseMissile20kt_internalx2",
+      "label": "ALND-4 (20kt) x2",
+      "weapon": "ALND-4 (20kt)",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "ECMPod1",
+      "label": "ECMPod1",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "FuelContainer2x1",
+      "label": "FuelContainer2x1",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "Gunpod12.7mm",
+      "label": "Gunpod12.7mm",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "Gunpod_25mm_flex",
+      "label": "Gunpod_25mm_flex",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "HLT-Rx1",
+      "label": "HLT-R",
+      "weapon": "",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "IRMS1_double",
+      "label": "IRM-S1 x2",
+      "weapon": "IRM-S1",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "IRMS1_single",
+      "label": "IRM-S1",
+      "weapon": "IRM-S1",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "IRMS1_triple",
+      "label": "IRM-S1 x3",
+      "weapon": "IRM-S1",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "JammingPod1",
+      "label": "Radar Jamming Pod",
+      "weapon": "",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "LightTruck1_ATx1",
+      "label": "LightTruck1_ATx1",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "LightTruck1_SAMx1",
+      "label": "LightTruck1_SAMx1",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "LightTruck1x2",
+      "label": "LCV25 x2",
+      "weapon": "",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "MunitionsContainerx1",
+      "label": "MunitionsContainerx1",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "MunitionsContainerx2",
+      "label": "Munitions Container x2",
+      "weapon": "",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "MunitionsPallet1x1",
+      "label": "MunitionsPallet1x1",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "NavalSupplyContainerx2",
+      "label": "Naval Supply Container x2",
+      "weapon": "",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "Radome1",
+      "label": "Radome",
+      "weapon": "",
+      "ammo": 0,
+      "source": "MountValues"
+    },
+    {
+      "type": "RepairContainerx2",
+      "label": "Repair Container x2",
+      "weapon": "",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "Rocket2_4Pod",
+      "label": "Rocket2_4Pod",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "Rocket2_4Podx3",
+      "label": "Rocket2_4Podx3",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "RocketPod1_single",
+      "label": "AGR-18 Lynchpin x7",
+      "weapon": "AGR-18 Lynchpin",
+      "ammo": 7,
+      "source": "MountValues"
+    },
+    {
+      "type": "RocketPod1_triple",
+      "label": "AGR-18 Lynchpin x21",
+      "weapon": "AGR-18 Lynchpin",
+      "ammo": 21,
+      "source": "MountValues"
+    },
+    {
+      "type": "SpecialFlarePod",
+      "label": "Special Flare Pod",
+      "weapon": "",
+      "ammo": 1000,
+      "source": "MountValues"
+    },
+    {
+      "type": "TailHook_Multirole1",
+      "label": "Tail Hook",
+      "weapon": "",
+      "ammo": 0,
+      "source": "MountValues"
+    },
+    {
+      "type": "TailHook_Trainer",
+      "label": "Tail Hook",
+      "weapon": "",
+      "ammo": 0,
+      "source": "MountValues"
+    },
+    {
+      "type": "Troopsx8_UtilityHelo1_F",
+      "label": "Troopsx8_UtilityHelo1_F",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "Troopsx8_UtilityHelo1_R",
+      "label": "Troopsx8_UtilityHelo1_R",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "Turret_12.7mm_door",
+      "label": "Turret_12.7mm_door",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "Turret_40mm_grenade",
+      "label": "Turret_40mm_grenade",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "UGV1_SAMx1",
+      "label": "UGV1_SAMx1",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "UGV1_grenadex1",
+      "label": "UGV1_grenadex1",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "autocannon_27mm_internal",
+      "label": "autocannon_27mm_internal",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "bomb_125_double",
+      "label": "PAB-125 x2",
+      "weapon": "PAB-125",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_125_double_line",
+      "label": "bomb_125_double_line",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "bomb_125_internalx2",
+      "label": "PAB-125 x2",
+      "weapon": "PAB-125",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_125_internalx2_line",
+      "label": "PAB-125 x2",
+      "weapon": "PAB-125",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_125_internalx4",
+      "label": "PAB-125 x4",
+      "weapon": "PAB-125",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_125_internalx6",
+      "label": "PAB-125 x6",
+      "weapon": "PAB-125",
+      "ammo": 6,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_125_quad",
+      "label": "PAB-125 x4",
+      "weapon": "PAB-125",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_125_single",
+      "label": "PAB-125",
+      "weapon": "PAB-125",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_125_triple",
+      "label": "PAB-125 x3",
+      "weapon": "PAB-125",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_250_internal",
+      "label": "PAB-250",
+      "weapon": "PAB-250",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_250_internalx18",
+      "label": "PAB-250 x18",
+      "weapon": "PAB-250",
+      "ammo": 18,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_250_internalx2",
+      "label": "PAB-250 x2",
+      "weapon": "PAB-250",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_250_internalx3",
+      "label": "PAB-250 x3",
+      "weapon": "PAB-250",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_250_internalx8",
+      "label": "PAB-250 x8",
+      "weapon": "PAB-250",
+      "ammo": 8,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_250_single",
+      "label": "PAB-250",
+      "weapon": "PAB-250",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_250_triple",
+      "label": "PAB-250 x3",
+      "weapon": "PAB-250",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_500_double",
+      "label": "GPO-500 x2",
+      "weapon": "GPO-500",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_500_glide_internalx6",
+      "label": "bomb_500_glide_internalx6",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "bomb_500_internal",
+      "label": "GPO-500",
+      "weapon": "GPO-500",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_500_internalx12",
+      "label": "GPO-500 x12",
+      "weapon": "GPO-500",
+      "ammo": 12,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_500_internalx2",
+      "label": "GPO-500 x2",
+      "weapon": "GPO-500",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_500_internalx4_flat",
+      "label": "GPO-500 x4",
+      "weapon": "GPO-500",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_500_internalx4_stack",
+      "label": "GPO-500 x4",
+      "weapon": "GPO-500",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_500_internalx6",
+      "label": "GPO-500 x6",
+      "weapon": "GPO-500",
+      "ammo": 6,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_500_internalx8",
+      "label": "GPO-500 x8",
+      "weapon": "GPO-500",
+      "ammo": 8,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_500_rotaryx6",
+      "label": "bomb_500_rotaryx6",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "bomb_500_single",
+      "label": "GPO-500",
+      "weapon": "GPO-500",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_demolition_internal",
+      "label": "Demolition Bomb",
+      "weapon": "Demolition Bomb",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_glide1_double",
+      "label": "PAB-80LR x2",
+      "weapon": "PAB-80LR",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_glide1_double_line",
+      "label": "bomb_glide1_double_line",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "bomb_glide1_single",
+      "label": "PAB-80LR",
+      "weapon": "PAB-80LR",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_glide1_triple",
+      "label": "PAB-80LR x3",
+      "weapon": "PAB-80LR",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_penetrator1",
+      "label": "GPO-2P Auger",
+      "weapon": "GPO-2P Auger",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_penetrator1_internalx2",
+      "label": "GPO-2P Auger x2",
+      "weapon": "GPO-2P Auger",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_penetrator1_internalx3",
+      "label": "GPO-2P Auger x3",
+      "weapon": "GPO-2P Auger",
+      "ammo": 3,
+      "source": "MountValues"
+    },
+    {
+      "type": "bomb_penetrator1_internalx4",
+      "label": "bomb_penetrator1_internalx4",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "bomb_penetrator1_mount",
+      "label": "bomb_penetrator1_mount",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "gun_12.7mm_internal",
+      "label": "12.7mm Ammunition",
+      "weapon": "",
+      "ammo": 500,
+      "source": "MountValues"
+    },
+    {
+      "type": "gun_12.7mm_pod",
+      "label": "12.7mm Gunpod",
+      "weapon": "",
+      "ammo": 500,
+      "source": "MountValues"
+    },
+    {
+      "type": "gun_20mm_VTOLTrainer1_pod",
+      "label": "gun_20mm_VTOLTrainer1_pod",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "gun_20mm_internal",
+      "label": "20mm HE ammunition",
+      "weapon": "",
+      "ammo": 750,
+      "source": "MountValues"
+    },
+    {
+      "type": "gun_20mm_internal_500",
+      "label": "20mm HE ammunition",
+      "weapon": "",
+      "ammo": 500,
+      "source": "MountValues"
+    },
+    {
+      "type": "gun_20mm_pod",
+      "label": "20mm gunpod",
+      "weapon": "",
+      "ammo": 250,
+      "source": "MountValues"
+    },
+    {
+      "type": "gun_25mm_trainer_pod",
+      "label": "25mm gunpod",
+      "weapon": "",
+      "ammo": 460,
+      "source": "MountValues"
+    },
+    {
+      "type": "gun_27mm_internal",
+      "label": "27mm DP Ammunition",
+      "weapon": "",
+      "ammo": 540,
+      "source": "MountValues"
+    },
+    {
+      "type": "gun_30mmHE_750_turret",
+      "label": "30mm HE x750",
+      "weapon": "",
+      "ammo": 750,
+      "source": "MountValues"
+    },
+    {
+      "type": "gun_30mm_rotary_pod",
+      "label": "gun_30mm_rotary_pod",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "gun_57mm_pod",
+      "label": "gun_57mm_pod",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "gun_ammo_35mm_720",
+      "label": "gun_ammo_35mm_720",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "gunpod_20mm",
+      "label": "gunpod_20mm",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "gunpod_25mm_trainer",
+      "label": "gunpod_25mm_trainer",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "laser_EW1",
+      "label": "120kw High Energy Laser",
+      "weapon": "",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "laser_testingPod",
+      "label": "120kw High Energy Laser",
+      "weapon": "",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "nuclearBomb1_internal",
+      "label": "GPO-N (1.5kt)",
+      "weapon": "GPO-N [1.5kt]",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "nuclearBomb1_internalx2",
+      "label": "GPO-N (1.5kt) x2",
+      "weapon": "GPO-N [1.5kt]",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "nuclearBomb1_internalx4",
+      "label": "GPO-N (1.5kt) x4",
+      "weapon": "GPO-N [1.5kt]",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "nuclearBomb1_strategic_internal",
+      "label": "GPO-N (250kt)",
+      "weapon": "GPO-N [250kt]",
+      "ammo": 1,
+      "source": "MountValues"
+    },
+    {
+      "type": "nuclearBomb1_strategic_internalx2",
+      "label": "GPO-N (250kt) x2",
+      "weapon": "GPO-N [250kt]",
+      "ammo": 2,
+      "source": "MountValues"
+    },
+    {
+      "type": "nuclearBomb1_strategic_internalx4",
+      "label": "GPO-N (250kt) x4",
+      "weapon": "GPO-N [250kt]",
+      "ammo": 4,
+      "source": "MountValues"
+    },
+    {
+      "type": "turret_12.7mm_rotary",
+      "label": "12.7mm Rotary Turret",
+      "weapon": "",
+      "ammo": 1000,
+      "source": "MountValues"
+    },
+    {
+      "type": "turret_20mm_rotary",
+      "label": "20mm Rotary Turret",
+      "weapon": "",
+      "ammo": 1200,
+      "source": "MountValues"
+    },
+    {
+      "type": "turret_25mm_flexpod",
+      "label": "25mm Flex Mount Gunpod",
+      "weapon": "",
+      "ammo": 250,
+      "source": "MountValues"
+    },
+    {
+      "type": "turret_30mmHE_750",
+      "label": "turret_30mmHE_750",
+      "weapon": "",
+      "ammo": null,
+      "source": "built-in mission loadout"
+    },
+    {
+      "type": "turret_30mm_chaingun",
+      "label": "30mm Chaingun Turret",
+      "weapon": "",
+      "ammo": 575,
+      "source": "MountValues"
+    },
+    {
+      "type": "turret_30mm_rotary",
+      "label": "30mm Rotary Turret",
+      "weapon": "",
+      "ammo": 750,
+      "source": "MountValues"
+    },
+    {
+      "type": "turret_76mm_SideMount",
+      "label": "76mm Cannon",
+      "weapon": "",
+      "ammo": 500,
+      "source": "MountValues"
+    }
+  ],
+  "aircraftTemplates": {
+    "trainer": {
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": "gunpod_25mm_trainer"
+          },
+          {
+            "Key": "AGM1_triple"
+          },
+          {
+            "Key": "RocketPod1_single"
+          },
+          {
+            "Key": "bomb_250_single"
+          },
+          {
+            "Key": ""
+          }
+        ]
+      },
+      "livery": 2,
+      "liveryType": "Builtin",
+      "liveryName": "",
+      "fuel": 1.0,
+      "skill": 1.0,
+      "bravery": 0.5,
+      "startingSpeed": 169.8794,
+      "sourceMission": "01. Convoy Attack"
+    },
+    "COIN": {
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": "12.7mm_internal"
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": "gunpod_20mm"
+          },
+          {
+            "Key": "bomb_250_single"
+          },
+          {
+            "Key": "ECMPod1"
+          },
+          {
+            "Key": "AAM3_single"
+          }
+        ]
+      },
+      "livery": 2,
+      "liveryType": "Builtin",
+      "liveryName": "",
+      "fuel": 1.0,
+      "skill": 1.0,
+      "bravery": 0.5,
+      "startingSpeed": 0.0142677249,
+      "sourceMission": "02. Round Up"
+    },
+    "VTOLTrainer1": {
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": "gun_20mm_VTOLTrainer1_pod"
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": ""
+          }
+        ]
+      },
+      "livery": 0,
+      "liveryType": "Builtin",
+      "liveryName": "",
+      "fuel": 1.0,
+      "skill": 1.0,
+      "bravery": 2.0,
+      "startingSpeed": 0.0,
+      "sourceMission": "02. Round Up"
+    },
+    "AttackHelo1": {
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": "turret_30mmHE_750"
+          },
+          {
+            "Key": "AGM1_quad_internal"
+          },
+          {
+            "Key": "RocketPod1_triple"
+          },
+          {
+            "Key": "IRMS1_double"
+          },
+          {
+            "Key": "IRMS1_double"
+          }
+        ]
+      },
+      "livery": 0,
+      "liveryType": "Builtin",
+      "liveryName": "",
+      "fuel": 1.0,
+      "skill": 1.0,
+      "bravery": 0.5,
+      "startingSpeed": 0.0,
+      "sourceMission": "03. Point Blank"
+    },
+    "Darkreach": {
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": ""
+          },
+          {
+            "Key": "bomb_500_internalx6"
+          },
+          {
+            "Key": "bomb_500_internalx6"
+          },
+          {
+            "Key": "bomb_penetrator1_internalx2"
+          }
+        ]
+      },
+      "livery": 0,
+      "liveryType": "Builtin",
+      "liveryName": "",
+      "fuel": 1.0,
+      "skill": 1.0,
+      "bravery": 1.0,
+      "startingSpeed": 223.481613,
+      "sourceMission": "03. Point Blank"
+    },
+    "Fighter1": {
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": "gun_20mm_internal"
+          },
+          {
+            "Key": "bomb_250_internalx2"
+          },
+          {
+            "Key": "Rocket2_4Pod"
+          },
+          {
+            "Key": "AAM1_single"
+          }
+        ]
+      },
+      "livery": 0,
+      "liveryType": "Builtin",
+      "liveryName": "",
+      "fuel": 1.0,
+      "skill": 1.0,
+      "bravery": 1.0,
+      "startingSpeed": 167.479614,
+      "sourceMission": "03. Point Blank"
+    },
+    "UtilityHelo1": {
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": "ATGM1_quad"
+          },
+          {
+            "Key": "Gunpod_25mm_flex"
+          },
+          {
+            "Key": "Turret_12.7mm_door"
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": ""
+          }
+        ]
+      },
+      "livery": 2,
+      "liveryType": "Builtin",
+      "liveryName": "",
+      "fuel": 0.195722133,
+      "skill": 1.0,
+      "bravery": 0.5,
+      "startingSpeed": 0.0,
+      "sourceMission": "03. Point Blank"
+    },
+    "EW1": {
+      "loadout": {
+        "weaponSelections": [
+          1,
+          1,
+          0,
+          1,
+          1
+        ]
+      },
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": "laser_EW1"
+          },
+          {
+            "Key": "ARM1_internalx2"
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": "JammingPod1"
+          },
+          {
+            "Key": "ARM1_double"
+          }
+        ]
+      },
+      "livery": 0,
+      "liveryType": 0,
+      "liveryName": "",
+      "fuel": 1.0,
+      "skill": 1.0,
+      "bravery": 0.5,
+      "startingSpeed": 0.0,
+      "sourceMission": "07. Blackout"
+    },
+    "Multirole1": {
+      "loadout": {
+        "weaponSelections": [
+          1,
+          2,
+          3,
+          9,
+          7,
+          1
+        ]
+      },
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": "autocannon_27mm_internal"
+          },
+          {
+            "Key": "bomb_500_internalx2"
+          },
+          {
+            "Key": "bomb_125_internalx6"
+          },
+          {
+            "Key": "AAM3_single_internal"
+          },
+          {
+            "Key": "bomb_penetrator1_mount"
+          },
+          {
+            "Key": "AGM_heavyx2"
+          },
+          {
+            "Key": "TailHook_Multirole1"
+          }
+        ]
+      },
+      "livery": 1,
+      "liveryType": 0,
+      "liveryName": "",
+      "fuel": 1.0,
+      "skill": 1.0,
+      "bravery": 1.0,
+      "startingSpeed": 0.0,
+      "sourceMission": "10. Dustbowl"
+    },
+    "QuadVTOL1": {
+      "loadout": {
+        "weaponSelections": [
+          1,
+          0,
+          0,
+          1,
+          2
+        ]
+      },
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": ""
+          },
+          {
+            "Key": "LightTruck1_ATx1"
+          },
+          {
+            "Key": "LightTruck1_SAMx1"
+          },
+          {
+            "Key": "12.7mmRotaryTurret"
+          },
+          {
+            "Key": "Gunpod_25mm_flex"
+          },
+          {
+            "Key": "Gunpod_25mm_flex"
+          },
+          {
+            "Key": "CargoHook"
+          }
+        ]
+      },
+      "livery": 0,
+      "liveryType": 0,
+      "liveryName": "",
+      "fuel": 0.3034387230873108,
+      "skill": 1.0,
+      "bravery": 0.5,
+      "startingSpeed": 0.0,
+      "sourceMission": "11. Expedition"
+    },
+    "CAS1": {
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": "gun_ammo_35mm_720"
+          },
+          {
+            "Key": "gun_57mm_pod"
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": "AGM1_triple"
+          },
+          {
+            "Key": "Rocket2_4Podx3"
+          },
+          {
+            "Key": "bomb_250_triple"
+          },
+          {
+            "Key": "AAM3_double"
+          },
+          {
+            "Key": "AGM1_double"
+          }
+        ]
+      },
+      "livery": 1,
+      "liveryType": "Builtin",
+      "liveryName": "",
+      "fuel": 0.297857136,
+      "skill": 1.0,
+      "bravery": 0.5,
+      "startingSpeed": 0.0,
+      "sourceMission": "13. Reprisal"
+    },
+    "FastBomber1": {
+      "loadout": {
+        "weaponSelections": []
+      },
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": "ARM1_internalx4"
+          },
+          {
+            "Key": "AShM3_internalx4_stack"
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": "JammingPod1"
+          },
+          {
+            "Key": "AAM3_single_internal"
+          }
+        ]
+      },
+      "livery": 0,
+      "liveryType": 0,
+      "liveryName": "",
+      "fuel": 0.5025814175605774,
+      "skill": 1.0,
+      "bravery": 9999.0,
+      "startingSpeed": 0.0,
+      "sourceMission": "14. To Sink a Carrier"
+    },
+    "SmallFighter1": {
+      "loadout": {
+        "weaponSelections": []
+      },
+      "savedLoadout": {
+        "Selected": [
+          {
+            "Key": "gun_20mm_internal_500"
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": ""
+          },
+          {
+            "Key": "AAM1_single"
+          }
+        ]
+      },
+      "livery": 0,
+      "liveryType": 0,
+      "liveryName": "",
+      "fuel": 1.0,
+      "skill": 1.0,
+      "bravery": 0.5,
+      "startingSpeed": 0.0,
+      "sourceMission": "14. To Sink a Carrier"
+    }
+  },
+  "presets": {
+    "defaultFactionSupplies": [
+      {
+        "unitType": "AttackHelo1",
+        "count": 12
+      },
+      {
+        "unitType": "CAS1",
+        "count": 12
+      },
+      {
+        "unitType": "COIN",
+        "count": 12
+      },
+      {
+        "unitType": "Darkreach",
+        "count": 12
+      },
+      {
+        "unitType": "EW1",
+        "count": 12
+      },
+      {
+        "unitType": "Fighter1",
+        "count": 12
+      },
+      {
+        "unitType": "Multirole1",
+        "count": 12
+      },
+      {
+        "unitType": "QuadVTOL1",
+        "count": 12
+      },
+      {
+        "unitType": "SmallFighter1",
+        "count": 12
+      },
+      {
+        "unitType": "UtilityHelo1",
+        "count": 12
+      },
+      {
+        "unitType": "VTOLTrainer1",
+        "count": 12
+      },
+      {
+        "unitType": "trainer",
+        "count": 12
+      }
+    ],
+    "factoryProductionTypes": [
+      "AttackHelo1",
+      "CAS1",
+      "COIN",
+      "Darkreach",
+      "EW1",
+      "Fighter1",
+      "Multirole1",
+      "QuadVTOL1",
+      "SmallFighter1",
+      "UtilityHelo1",
+      "VTOLTrainer1",
+      "trainer"
+    ],
+    "airPatrolTypes": {
+      "helicopters": [
+        "AttackHelo1",
+        "UtilityHelo1"
+      ],
+      "fixedWing": [
+        "SmallFighter1",
+        "Multirole1",
+        "CAS1",
+        "Fighter1",
+        "VTOLTrainer1"
+      ]
+    },
+    "objectiveProfiles": {
+      "armor": [
+        "MBT1",
+        "MBT",
+        "Linebreaker_IFV",
+        "AFV8_IFV",
+        "6x6_1_IFV",
+        "AFV8_APC"
+      ],
+      "air-defense": [
+        "RadarSAM1",
+        "SAMTrailer1",
+        "Truck2-RSAM",
+        "SPAAG1",
+        "SPAAG2",
+        "AFV8_SAM",
+        "Linebreaker_SAM",
+        "Truck2-LADS",
+        "CRAMTrailer1"
+      ],
+      "artillery": [
+        "HLT-MART",
+        "Truck2-MLRS",
+        "Truck2-FT",
+        "UGV1_grenade"
+      ],
+      "mixed": [
+        "MBT1",
+        "MBT",
+        "Linebreaker_IFV",
+        "AFV8_IFV",
+        "RadarSAM1",
+        "Truck2-RSAM",
+        "SPAAG2",
+        "HLT-MART",
+        "Truck2-MLRS",
+        "AFV8_APC"
+      ]
+    }
+  }
+}

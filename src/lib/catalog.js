@@ -127,6 +127,23 @@ function getBundledHeartlandPixelLocationsPath() {
   return path.join(getBundledDataDir(), "heartland_pixel_locations.csv");
 }
 
+function getBundledGameAssetsPath() {
+  return path.join(getBundledDataDir(), "game_assets.json");
+}
+
+function loadGameAssets() {
+  const gameAssetsPath = getBundledGameAssetsPath();
+  if (!safeExists(gameAssetsPath)) {
+    return null;
+  }
+
+  try {
+    return readJson(gameAssetsPath);
+  } catch {
+    return null;
+  }
+}
+
 function parseCsv(text) {
   const lines = text
     .split(/\r?\n/)
@@ -616,7 +633,7 @@ function inferScenarioStartAirfields(mission, mapPath) {
   return Array.from(usage.values());
 }
 
-function discoverInstallSummary(installPath) {
+function discoverInstallSummary(installPath, gameAssets = null) {
   const managedDll = path.join(
     installPath,
     "NuclearOption_Data",
@@ -631,7 +648,7 @@ function discoverInstallSummary(installPath) {
     managedDllExists: safeExists(managedDll),
     globalManagersExists: safeExists(globalManagers),
     knownMaps: Object.values(MAP_PRESETS).map(({ key, label }) => ({ key, label })),
-    inferredBuiltInScenarios: [
+    inferredBuiltInScenarios: gameAssets?.source?.builtInMissions || [
       "Convoy Attack",
       "Round Up",
       "Point Blank",
@@ -656,6 +673,7 @@ function discoverInstallSummary(installPath) {
 function buildCatalog(paths = DEFAULT_PATHS) {
   ensureWritableDataBootstrap();
   const resolvedPaths = resolveCatalogPaths(paths);
+  const gameAssets = loadGameAssets();
   const customAnchors = loadCustomAnchors();
   const configuredLocationsByMap = loadConfiguredLocationsByMap();
   const userMissions = listMissionFolders(resolvedPaths.missionsPath).map(missionDescriptor);
@@ -713,7 +731,8 @@ function buildCatalog(paths = DEFAULT_PATHS) {
       installPathSource: resolvedPaths.installPathSource
     },
     appSettings: resolvedPaths.appSettings,
-    install: discoverInstallSummary(resolvedPaths.installPath),
+    install: discoverInstallSummary(resolvedPaths.installPath, gameAssets),
+    gameAssets,
     userMissions,
     tempMissions,
     maps: Array.from(missionMaps.values()).map((map) => ({

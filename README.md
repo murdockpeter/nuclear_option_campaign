@@ -215,6 +215,15 @@ The exporter also attempts to install the generated mission into:
 - [data/campaign_state.json](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/data/campaign_state.json)
   Persistent campaign save data.
 
+- [data/game_assets.json](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/data/game_assets.json)
+  Versioned roster of exact mission-editor identifiers, friendly labels, representative aircraft loadouts, weapon mounts, and generator presets extracted from the installed game.
+
+- [scripts/refresh_game_assets.py](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/scripts/refresh_game_assets.py)
+  Rebuilds `game_assets.json` from the installed game's built-in mission, `UnitValues`, `UnitParts`, and `MountValues` TextAssets.
+
+- [data/legacy/README.md](C:/Users/Peter%20G.%20Robbins/Documents/claudeprojects/nuclear_option_campaign/data/legacy/README.md)
+  Rollback instructions and checksums for the pre-refresh data and hard-coded generator rosters.
+
 ## CSV Fields
 
 `data/heartland_pixel_locations.csv` currently uses:
@@ -233,6 +242,24 @@ The exporter also attempts to install the generated mission into:
 `pixel_x` and `pixel_y` come from clicks on the UI map image.
 
 `game_world_x` and `game_world_z` come from the in-game mission editor.
+
+## Refresh the Game Asset Catalog
+
+The checked-in catalog currently represents Steam build `24403978` (game build
+hash `797b86fe892`). It contains 13 aircraft identifiers, 44 vehicle types, 8
+ships, 22 buildings, 3 containers, 28 scenery types, and 173 weapon mounts
+found in the installed game resources.
+
+Install the extraction dependency and regenerate after a Nuclear Option update:
+
+```powershell
+python -m pip install UnityPy
+python scripts\refresh_game_assets.py
+```
+
+The generator keeps its former hard-coded constants as runtime fallbacks if the
+catalog is absent or unreadable. The exact pre-refresh resources are also stored
+under `data/legacy/` for troubleshooting and comparison.
 
 ## Run
 

@@ -1,0 +1,39 @@
+{
+  "snapshotDate": "2026-07-27",
+  "sourceCommit": "bc1b089",
+  "defaultFactionSupplies": [
+    { "unitType": "COIN", "count": 12 },
+    { "unitType": "trainer", "count": 12 },
+    { "unitType": "AttackHelo1", "count": 12 },
+    { "unitType": "UtilityHelo1", "count": 12 },
+    { "unitType": "CAS1", "count": 12 },
+    { "unitType": "Multirole1", "count": 12 },
+    { "unitType": "SmallFighter1", "count": 12 },
+    { "unitType": "QuadVTOL1", "count": 12 },
+    { "unitType": "FastBomber1", "count": 12 },
+    { "unitType": "EW1", "count": 12 }
+  ],
+  "objectiveProfiles": {
+    "armor": ["MBT1", "AFV8_IFV", "AFV8_APC"],
+    "air-defense": ["RadarSAM1", "SAMTrailer1", "SPAAG1", "AFV8_SAM"],
+    "artillery": ["Truck2-FT", "LightTruck1_AT", "AFV8_APC"],
+    "mixed": ["MBT1", "AFV8_IFV", "RadarSAM1", "SPAAG1", "Truck2-FT", "AFV8_APC"]
+  },
+  "factoryProductionTypes": ["COIN", "AttackHelo1", "CAS1", "Multirole1"],
+  "airPatrolTypes": {
+    "helicopters": ["AttackHelo1", "UtilityHelo1"],
+    "fixedWing": ["SmallFighter1", "Multirole1", "CAS1"]
+  },
+  "targetTemplateElementTypes": [
+    { "value": "RadarSAM1", "label": "Radar SAM", "kind": "vehicle" },
+    { "value": "SAMTrailer1", "label": "SAM Trailer", "kind": "vehicle" },
+    { "value": "SPAAG1", "label": "AAA / SPAAG", "kind": "vehicle" },
+    { "value": "Truck2-FT", "label": "Artillery Truck", "kind": "vehicle" },
+    { "value": "LightTruck1_AT", "label": "AT Truck", "kind": "vehicle" },
+    { "value": "MBT1", "label": "Main Battle Tank", "kind": "vehicle" },
+    { "value": "AFV8_IFV", "label": "IFV", "kind": "vehicle" },
+    { "value": "AFV8_APC", "label": "APC", "kind": "vehicle" },
+    { "value": "factory_large", "label": "Large Factory", "kind": "building" },
+    { "value": "factory_tall", "label": "Tall Factory", "kind": "building" }
+  ]
+}
