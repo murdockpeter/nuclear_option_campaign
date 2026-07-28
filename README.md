@@ -35,7 +35,7 @@ The app is organized around three main workspaces:
 - Persists faction logistics, ownership, objective metadata, and generated order-of-battle records.
 - Displays configured locations as ownership nodes on the UI map.
 - Highlights the selected starting airfield and objective on the campaign map.
-- Supports advanced target generation for ground, factories, patrols, convoys, and air threats.
+- Supports role-diversified ground target generation for armor, mechanized forces, anti-armor, AAA, SAMs, point defense, artillery, logistics, patrols, and convoys.
 - Generates airborne enemy helicopter and fixed-wing patrols as real `aircraft` entries.
 - Draws configurable helo and fixed-wing patrol radius overlays on the map.
 - Produces a mission briefing graphic using the authored map, ownership nodes, objective marker, and patrol overlays.
@@ -260,6 +260,11 @@ python scripts\refresh_game_assets.py
 The generator keeps its former hard-coded constants as runtime fallbacks if the
 catalog is absent or unreadable. The exact pre-refresh resources are also stored
 under `data/legacy/` for troubleshooting and comparison.
+
+Existing saved campaigns receive a one-time ground-force composition migration
+on their next export. Unit identity, faction, position, status, and waypoints are
+preserved while legacy vehicle types rotate through equivalent current role
+pools. The migration version is then stored so later exports remain stable.
 
 ## Run
 

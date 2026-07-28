@@ -1104,6 +1104,11 @@ function exportCampaign(payload) {
   const campaignState = {
     ...(previousState || {}),
     version: 1,
+    groundForceCompositionVersion: Number(
+      payload.initialState?.groundForceCompositionVersion ??
+        previousState?.groundForceCompositionVersion ??
+        0
+    ),
     campaignName,
     mapKey: payload.parameters.mapKey,
     mapLabel: payload.parameters.mapLabel,

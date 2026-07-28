@@ -54,6 +54,30 @@ for (const [profile, types] of Object.entries(assets.presets.objectiveProfiles |
   }
 }
 
+const groundForcePools = assets.presets.groundForcePools || {};
+const requiredGroundRoles = [
+  "armor",
+  "mechanized",
+  "antiArmor",
+  "antiAirArtillery",
+  "shortRangeSam",
+  "mediumRangeSam",
+  "pointDefense",
+  "artillery",
+  "logistics"
+];
+for (const role of requiredGroundRoles) {
+  const types = groundForcePools[role] || [];
+  assert(types.length >= 2, `Ground-force role needs more diversity: ${role}`);
+  assert(types.length === new Set(types).size, `Duplicate vehicle in ground-force role: ${role}`);
+  for (const type of types) {
+    assert(categoryTypes.vehicles.has(type), `Unknown ${role} vehicle: ${type}`);
+  }
+}
+
+const pooledGroundTypes = new Set(Object.values(groundForcePools).flat());
+assert(pooledGroundTypes.size >= 30, "Ground-force pools do not provide enough overall diversity");
+
 const requiredCurrentAssets = {
   aircraft: ["VTOLTrainer1"],
   vehicles: ["HLT-MART", "Truck2-MLRS", "UGVDozer1"],
@@ -65,6 +89,10 @@ for (const [category, types] of Object.entries(requiredCurrentAssets)) {
   for (const type of types) {
     assert(categoryTypes[category].has(type), `Current asset missing: ${category}/${type}`);
   }
+}
+
+for (const type of ["HLT-MART", "Truck2-MLRS", "UGVDozer1"]) {
+  assert(pooledGroundTypes.has(type), `Current ground asset is not used by generation pools: ${type}`);
 }
 
 console.log(

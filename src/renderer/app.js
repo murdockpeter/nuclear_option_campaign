@@ -26,6 +26,7 @@ const OBJECTIVE_FORCE_COUNTS = [4, 8, 12, 18];
 const DEFAULT_OBJECTIVE_COMPLETION_PERCENT = 50;
 const BASELINE_DEFENDER_COUNT = 3;
 const AUTOLOAD_DELAY_MS = 350;
+const GROUND_FORCE_COMPOSITION_VERSION = 1;
 const TURN_FUNDS_PER_OWNED_LOCATION = 25000;
 const TURN_SUPPLY_REPLENISH_PER_TYPE = 2;
 const TURN_SUPPLY_CAP_PER_TYPE = 24;
@@ -52,6 +53,17 @@ const OBJECTIVE_PROFILE_TYPES = {
   "air-defense": ["RadarSAM1", "SAMTrailer1", "SPAAG1", "AFV8_SAM"],
   artillery: ["Truck2-FT", "LightTruck1_AT", "AFV8_APC"],
   mixed: ["MBT1", "AFV8_IFV", "RadarSAM1", "SPAAG1", "Truck2-FT", "AFV8_APC"]
+};
+const GROUND_FORCE_POOLS = {
+  armor: ["MBT1"],
+  mechanized: ["AFV8_IFV", "AFV8_APC"],
+  antiArmor: ["LightTruck1_AT"],
+  antiAirArtillery: ["SPAAG1"],
+  shortRangeSam: ["SAMTrailer1"],
+  mediumRangeSam: ["RadarSAM1"],
+  pointDefense: [],
+  artillery: ["Truck2-FT"],
+  logistics: ["Truck2-FT"]
 };
 const FACTORY_BUILDING_TYPES = ["factory_large", "factory_tall"];
 const FACTORY_PRODUCTION_TYPES = ["COIN", "AttackHelo1", "CAS1", "Multirole1"];
@@ -151,6 +163,13 @@ function currentDefaultFactionSupplies() {
 
 function currentObjectiveProfileTypes() {
   return gameAssetPresets().objectiveProfiles || OBJECTIVE_PROFILE_TYPES;
+}
+
+function currentGroundForcePools() {
+  return {
+    ...GROUND_FORCE_POOLS,
+    ...(gameAssetPresets().groundForcePools || {})
+  };
 }
 
 function currentFactoryProductionTypes() {
@@ -1574,6 +1593,9 @@ function buildCampaignStatePayload() {
 
   return {
     version: 1,
+    groundForceCompositionVersion: Number(
+      state.campaignState?.groundForceCompositionVersion || 0
+    ),
     campaignName: els.campaignName.value.trim() || "Untitled Campaign",
     mapKey: map?.key || state.selectedMapKey,
     mapLabel: map?.label || "",
@@ -1696,6 +1718,37 @@ function buildVehiclesFromPersistentUnits() {
       skill: Number(unit.skill ?? 0.7),
       waypoints: cloneWaypoints(unit.waypoints || [])
     }));
+}
+
+function diversifyPersistentVehicleTypes(vehicles) {
+  const pools = currentGroundForcePools();
+  const legacyRoleByType = {
+    MBT1: "armor",
+    AFV8_IFV: "mechanized",
+    AFV8_APC: "mechanized",
+    LightTruck1_AT: "antiArmor",
+    SPAAG1: "antiAirArtillery",
+    AFV8_SAM: "shortRangeSam",
+    SAMTrailer1: "mediumRangeSam",
+    RadarSAM1: "mediumRangeSam",
+    "Truck2-FT": "artillery"
+  };
+  const roleIndexes = new Map();
+
+  return vehicles.map((vehicle) => {
+    const role = legacyRoleByType[vehicle.type];
+    const pool = role ? uniqueTypes(pools[role]) : [];
+    if (!role || pool.length < 2) {
+      return vehicle;
+    }
+
+    const roleIndex = roleIndexes.get(role) || 0;
+    roleIndexes.set(role, roleIndex + 1);
+    return {
+      ...vehicle,
+      type: pool[roleIndex % pool.length]
+    };
+  });
 }
 
 function renderCampaignLogistics() {
@@ -2739,27 +2792,60 @@ function createFactoryBuilding(type, faction, name, x, y, z, angleDegrees, produ
   return building;
 }
 
+function uniqueTypes(...pools) {
+  return Array.from(new Set(pools.flat().filter(Boolean)));
+}
+
+function rotatingTypes(pool, count, offset = 0) {
+  const types = uniqueTypes(pool);
+  if (!types.length || count <= 0) {
+    return [];
+  }
+
+  return Array.from(
+    { length: Math.min(count, types.length) },
+    (_, index) => types[(offset + index) % types.length]
+  );
+}
+
+function interleavedTypes(...pools) {
+  const normalizedPools = pools.map((pool) => uniqueTypes(pool));
+  const maxLength = Math.max(0, ...normalizedPools.map((pool) => pool.length));
+  const interleaved = [];
+
+  for (let index = 0; index < maxLength; index += 1) {
+    for (const pool of normalizedPools) {
+      if (pool[index]) {
+        interleaved.push(pool[index]);
+      }
+    }
+  }
+
+  return uniqueTypes(interleaved);
+}
+
 function buildResistanceGroundTypes(settings, options = {}) {
   const includeArtillery = options.includeArtillery ?? true;
+  const pools = currentGroundForcePools();
   const types = [];
 
   if (els.enableGround.checked && settings.operationalResistance.scatteredGroundVehicles) {
-    types.push("AFV8_IFV", "AFV8_APC");
+    types.push(...pools.mechanized, ...pools.antiArmor);
   }
   if (settings.operationalResistance.antiAirArtillery) {
-    types.push("SPAAG1");
+    types.push(...pools.antiAirArtillery, ...pools.pointDefense);
   }
   if (els.enableSam.checked && settings.operationalResistance.shortRangeSam) {
-    types.push("SAMTrailer1");
+    types.push(...pools.shortRangeSam);
   }
   if (els.enableSam.checked && settings.operationalResistance.mediumRangeSam) {
-    types.push("RadarSAM1");
+    types.push(...pools.mediumRangeSam);
   }
   if (els.enableArtillery.checked && includeArtillery) {
-    types.push("Truck2-FT");
+    types.push(...pools.artillery);
   }
 
-  return types.length ? types : ["AFV8_APC"];
+  return uniqueTypes(types.length ? types : pools.mechanized || ["AFV8_APC"]);
 }
 
 function buildFrontlinePairs(locations, maxPairs = 4) {
@@ -2810,9 +2896,12 @@ function buildFrontlineMobileVehicles(locations, settings) {
   let index = 0;
   const vehicles = [];
   const patrolTypes = buildResistanceGroundTypes(settings, { includeArtillery: false });
-  const convoyTypes = [...buildResistanceGroundTypes(settings, { includeArtillery: true }), "LightTruck1_AT"];
+  const convoyTypes = uniqueTypes(
+    buildResistanceGroundTypes(settings, { includeArtillery: true }),
+    currentGroundForcePools().logistics
+  );
 
-  function addGroup(origin, opposing, pairIndex, prefix, types, laneOffset) {
+  function addGroup(origin, opposing, pairIndex, prefix, types, laneOffset, unitCount) {
     const dx = Number(opposing.gameWorldX) - Number(origin.gameWorldX);
     const dz = Number(opposing.gameWorldZ) - Number(origin.gameWorldZ);
     const length = Math.max(Math.sqrt(dx * dx + dz * dz), 1);
@@ -2834,14 +2923,19 @@ function buildFrontlineMobileVehicles(locations, settings) {
     const flankZ = flankPoint.z;
     const heading = (Math.atan2(dz, dx) * 180) / Math.PI;
 
-    for (let vehicleIndex = 0; vehicleIndex < types.length; vehicleIndex += 1) {
+    const groupTypes = rotatingTypes(
+      types,
+      unitCount,
+      pairIndex * unitCount + (laneOffset < 0 ? Math.ceil(types.length / 2) : 0)
+    );
+    for (let vehicleIndex = 0; vehicleIndex < groupTypes.length; vehicleIndex += 1) {
       index += 1;
       const spacing = vehicleIndex * 28;
       const spawnX = startX - nx * spacing;
       const spawnZ = startZ - nz * spacing;
       vehicles.push(
         createDefenderVehicle(
-          types[vehicleIndex],
+          groupTypes[vehicleIndex],
           origin.initialOwner,
           `${prefix}_${sanitizeIdFragment(origin.name)}_${pairIndex + 1}_${index}`,
           spawnX,
@@ -2864,12 +2958,12 @@ function buildFrontlineMobileVehicles(locations, settings) {
 
   pairs.forEach((pair, pairIndex) => {
     if (pairIndex < settings.patrolPlan.frontlinePatrolGroups) {
-      addGroup(pair.a, pair.b, pairIndex, "frontline_patrol", patrolTypes, 120);
-      addGroup(pair.b, pair.a, pairIndex, "frontline_patrol", patrolTypes, -120);
+      addGroup(pair.a, pair.b, pairIndex, "frontline_patrol", patrolTypes, 120, 6);
+      addGroup(pair.b, pair.a, pairIndex, "frontline_patrol", patrolTypes, -120, 6);
     }
     if (pairIndex < settings.patrolPlan.convoyGroups) {
-      addGroup(pair.a, pair.b, pairIndex, "frontline_convoy", convoyTypes, 200);
-      addGroup(pair.b, pair.a, pairIndex, "frontline_convoy", convoyTypes, -200);
+      addGroup(pair.a, pair.b, pairIndex, "frontline_convoy", convoyTypes, 200, 8);
+      addGroup(pair.b, pair.a, pairIndex, "frontline_convoy", convoyTypes, -200, 8);
     }
   });
 
@@ -2939,8 +3033,22 @@ function buildFrontlineActionVehicles(locations, settings) {
       });
     }
 
-    addSkirmishElement(pair.a.initialOwner, friendlyTypes.slice(0, 4), friendlyAnchorX, friendlyAnchorZ, friendlyHeading, 1);
-    addSkirmishElement(pair.b.initialOwner, enemyTypes.slice(0, 4), enemyAnchorX, enemyAnchorZ, enemyHeading, -1);
+    addSkirmishElement(
+      pair.a.initialOwner,
+      rotatingTypes(friendlyTypes, 4, pairIndex * 4),
+      friendlyAnchorX,
+      friendlyAnchorZ,
+      friendlyHeading,
+      1
+    );
+    addSkirmishElement(
+      pair.b.initialOwner,
+      rotatingTypes(enemyTypes, 4, pairIndex * 4 + 2),
+      enemyAnchorX,
+      enemyAnchorZ,
+      enemyHeading,
+      -1
+    );
   });
 
   return vehicles;
@@ -2953,7 +3061,7 @@ function buildBaselineDefenseVehicles(locations, settings) {
 
   return locations
     .filter((location) => location.initialOwner && location.initialOwner !== "Neutral")
-    .flatMap((location) => {
+    .flatMap((location, locationIndex) => {
       return Array.from({ length: unitCount }, (_, vehicleIndex) => {
         index += 1;
         const angle = vehicleIndex * (360 / unitCount);
@@ -2963,7 +3071,7 @@ function buildBaselineDefenseVehicles(locations, settings) {
         const x = randomized.x;
         const y = Number(location.gameWorldY ?? 0);
         const z = randomized.z;
-        const type = baselineTypes[vehicleIndex % baselineTypes.length];
+        const type = baselineTypes[(locationIndex * unitCount + vehicleIndex) % baselineTypes.length];
         return createDefenderVehicle(
           type,
           location.initialOwner,
@@ -2986,22 +3094,24 @@ function buildObjectiveDefenseVehicles(objectiveLocation, settings) {
   }
 
   const objectiveTypes = [];
+  const pools = currentGroundForcePools();
   if (els.enableSam.checked) {
+    const samTypes = interleavedTypes(pools.mediumRangeSam, pools.shortRangeSam, pools.pointDefense);
     for (let index = 0; index < settings.objectivePackage.samSites; index += 1) {
-      objectiveTypes.push(index % 2 === 0 ? "RadarSAM1" : "SAMTrailer1");
+      objectiveTypes.push(...rotatingTypes(samTypes, 1, index));
     }
   }
   if (els.enableArtillery.checked) {
     for (let index = 0; index < settings.objectivePackage.artillerySites; index += 1) {
-      objectiveTypes.push("Truck2-FT");
+      objectiveTypes.push(...rotatingTypes(pools.artillery, 1, index));
     }
   }
   if (els.enableGround.checked) {
     for (let index = 0; index < settings.objectivePackage.tankUnits; index += 1) {
-      objectiveTypes.push("MBT1");
+      objectiveTypes.push(...rotatingTypes(pools.armor, 1, index));
     }
     for (let index = 0; index < settings.objectivePackage.ifvUnits; index += 1) {
-      objectiveTypes.push("AFV8_IFV");
+      objectiveTypes.push(...rotatingTypes(pools.mechanized, 1, index));
     }
   }
 
@@ -3386,7 +3496,10 @@ function buildObjectiveTemplateElements(objectiveLocation) {
 function buildCampaignVehicles(locations, objectiveLocation, settings, objectiveTemplateVehicles = []) {
   const persistedVehicles = buildVehiclesFromPersistentUnits();
   if (persistedVehicles.length > 0) {
-    return persistedVehicles;
+    return Number(state.campaignState?.groundForceCompositionVersion || 0) >=
+      GROUND_FORCE_COMPOSITION_VERSION
+      ? persistedVehicles
+      : diversifyPersistentVehicleTypes(persistedVehicles);
   }
 
   return [
@@ -3558,6 +3671,7 @@ async function getCampaignPayload() {
       advancedThreats
     },
     initialState: {
+      groundForceCompositionVersion: GROUND_FORCE_COMPOSITION_VERSION,
       mapKey: map.key,
       mapLabel: map.label,
       startingAirbase,

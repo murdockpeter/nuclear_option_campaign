@@ -338,6 +338,53 @@ def build_presets(categories: dict[str, list[dict[str, Any]]]) -> dict[str, Any]
                 "AFV8_APC",
             ],
         },
+        "groundForcePools": {
+            "armor": ["MBT1", "MBT"],
+            "mechanized": [
+                "AFV8_IFV",
+                "Linebreaker_IFV",
+                "6x6_1_IFV",
+                "AFV8_APC",
+                "Linebreaker_APC",
+                "6x6_1_APC",
+                "Truck2-MRAP",
+                "UGV1_grenade",
+            ],
+            "antiArmor": ["LightTruck1_AT", "6x6_1_AT"],
+            "antiAirArtillery": [
+                "SPAAG1",
+                "SPAAG2",
+                "6x6_1_AA",
+                "LightTruck1_AA",
+            ],
+            "shortRangeSam": ["AFV8_SAM", "Linebreaker_SAM", "UGV1_SAM"],
+            "mediumRangeSam": ["RadarSAM1", "SAMTrailer1", "Truck2-RSAM"],
+            "pointDefense": [
+                "CRAMTrailer1",
+                "Truck2-CRAM",
+                "LaserTrailer1",
+                "Truck2-LADS",
+            ],
+            "artillery": [
+                "HLT-MART",
+                "Truck2-MLRS",
+            ],
+            "logistics": [
+                "HLT-FC",
+                "HLT-FT",
+                "HLT-L",
+                "HLT-M",
+                "HLT-R",
+                "HLT-T",
+                "Truck2-FC",
+                "Truck2-FT",
+                "Truck2-L",
+                "Truck2-M",
+                "Truck2-R",
+                "Truck2-T",
+                "UGVDozer1",
+            ],
+        },
     }
 
 
