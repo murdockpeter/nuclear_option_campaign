@@ -208,6 +208,42 @@ function targetTemplateElementTypes() {
   ];
 }
 
+function renderTargetTemplateElementTypeOptions() {
+  if (!els.configTemplateElementType) {
+    return;
+  }
+
+  const types = targetTemplateElementTypes();
+  const signature = types
+    .map((entry) => `${entry.kind}:${entry.value}:${entry.label}`)
+    .join("|");
+  if (els.configTemplateElementType.dataset.catalogSignature === signature) {
+    return;
+  }
+
+  const currentValue = els.configTemplateElementType.value;
+  els.configTemplateElementType.innerHTML = "";
+
+  for (const kind of ["vehicle", "building"]) {
+    const entries = types.filter((entry) => entry.kind === kind);
+    if (!entries.length) {
+      continue;
+    }
+
+    const group = document.createElement("optgroup");
+    group.label = `${kind === "vehicle" ? "Vehicles" : "Buildings"} (${entries.length})`;
+    entries.forEach((entry) => {
+      group.appendChild(createOption(entry.value, entry.label));
+    });
+    els.configTemplateElementType.appendChild(group);
+  }
+
+  els.configTemplateElementType.dataset.catalogSignature = signature;
+  els.configTemplateElementType.value = types.some((entry) => entry.value === currentValue)
+    ? currentValue
+    : types[0]?.value || "";
+}
+
 const els = {
   scanMeta: document.getElementById("scan-meta"),
   installPathReadout: document.getElementById("install-path-readout"),
@@ -920,11 +956,7 @@ function renderTargetTemplateOptions() {
   });
   els.configExistingTemplate.value = templates.some((entry) => entry.id === currentTemplateValue) ? currentTemplateValue : (state.activeTemplateId || "");
 
-  if (!els.configTemplateElementType.options.length) {
-    targetTemplateElementTypes().forEach((type) => {
-      els.configTemplateElementType.appendChild(createOption(type.value, type.label));
-    });
-  }
+  renderTargetTemplateElementTypeOptions();
 }
 
 function renderTemplateElements() {
@@ -1388,6 +1420,11 @@ function drawCanvasRadiusOverlays(context, map, objectiveLocation, settings, fra
   const centerX = frame.x + Number(objectiveLocation.pixelX) * frame.scale;
   const centerY = frame.y + Number(objectiveLocation.pixelY) * frame.scale;
 
+  context.save();
+  context.beginPath();
+  context.rect(frame.x, frame.y, frame.width, frame.height);
+  context.clip();
+
   getPatrolRadiusOverlayDescriptors(settings).forEach((overlay) => {
     const radiusPixels = (overlay.radiusMeters / metersPerPixel) * frame.scale;
     context.save();
@@ -1406,9 +1443,19 @@ function drawCanvasRadiusOverlays(context, map, objectiveLocation, settings, fra
     context.lineWidth = 2;
     context.font = "700 22px Segoe UI";
     const labelWidth = Math.max(290, context.measureText(overlay.label).width + 40);
-    const labelX = centerX - labelWidth / 2;
-    const labelY = centerY - radiusPixels - 54;
     const labelHeight = 38;
+    const labelX = clampNumber(
+      centerX - labelWidth / 2,
+      frame.x + 12,
+      frame.x + frame.width - labelWidth - 12,
+      frame.x + 12
+    );
+    const labelY = clampNumber(
+      centerY - radiusPixels - 54,
+      frame.y + 12,
+      frame.y + frame.height - labelHeight - 12,
+      frame.y + 12
+    );
     context.beginPath();
     context.roundRect(labelX, labelY, labelWidth, labelHeight, 14);
     context.fill();
@@ -1420,6 +1467,368 @@ function drawCanvasRadiusOverlays(context, map, objectiveLocation, settings, fra
     context.fillText(overlay.label, centerX, labelY + labelHeight / 2);
     context.restore();
   });
+
+  context.restore();
+}
+
+function drawCanvasFrontlineOverlays(context, locations, settings, frame) {
+  const eligibleLocations = locations.filter((location) => {
+    return (
+      Number.isFinite(Number(location.pixelX)) &&
+      Number.isFinite(Number(location.pixelY)) &&
+      Number.isFinite(Number(location.gameWorldX)) &&
+      Number.isFinite(Number(location.gameWorldZ))
+    );
+  });
+  const maxPairs = Number(settings?.patrolPlan?.frontlinePairs || 0);
+  const pairs = buildFrontlinePairs(eligibleLocations, maxPairs);
+  if (!pairs.length) {
+    return;
+  }
+
+  context.save();
+  context.beginPath();
+  context.rect(frame.x, frame.y, frame.width, frame.height);
+  context.clip();
+
+  pairs.forEach((pair, pairIndex) => {
+    const aX = frame.x + Number(pair.a.pixelX) * frame.scale;
+    const aY = frame.y + Number(pair.a.pixelY) * frame.scale;
+    const bX = frame.x + Number(pair.b.pixelX) * frame.scale;
+    const bY = frame.y + Number(pair.b.pixelY) * frame.scale;
+    const dx = bX - aX;
+    const dy = bY - aY;
+    const length = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+    const midpointX = aX + dx * 0.5;
+    const midpointY = aY + dy * 0.5;
+    const perpendicularX = -dy / length;
+    const perpendicularY = dx / length;
+    const halfFrontWidth = Math.min(180, Math.max(90, length * 0.16));
+
+    context.save();
+    context.setLineDash([14, 12]);
+    context.strokeStyle = "rgba(242, 166, 64, 0.62)";
+    context.lineWidth = 4;
+    context.beginPath();
+    context.moveTo(aX, aY);
+    context.lineTo(bX, bY);
+    context.stroke();
+    context.restore();
+
+    const frontStartX = midpointX - perpendicularX * halfFrontWidth;
+    const frontStartY = midpointY - perpendicularY * halfFrontWidth;
+    const frontEndX = midpointX + perpendicularX * halfFrontWidth;
+    const frontEndY = midpointY + perpendicularY * halfFrontWidth;
+
+    context.save();
+    context.setLineDash([22, 12]);
+    context.lineCap = "round";
+    context.strokeStyle = "rgba(5, 12, 18, 0.82)";
+    context.lineWidth = 16;
+    context.beginPath();
+    context.moveTo(frontStartX, frontStartY);
+    context.lineTo(frontEndX, frontEndY);
+    context.stroke();
+    context.strokeStyle = "rgba(255, 199, 92, 0.96)";
+    context.lineWidth = 8;
+    context.stroke();
+    context.restore();
+
+    const label = `FRONT ${pairIndex + 1}`;
+    context.save();
+    context.font = "800 22px Segoe UI";
+    const labelWidth = context.measureText(label).width + 34;
+    const labelHeight = 38;
+    const labelX = clampNumber(
+      midpointX - labelWidth / 2,
+      frame.x + 12,
+      frame.x + frame.width - labelWidth - 12,
+      frame.x + 12
+    );
+    const labelY = clampNumber(
+      midpointY + 18,
+      frame.y + 12,
+      frame.y + frame.height - labelHeight - 12,
+      frame.y + 12
+    );
+    context.fillStyle = "rgba(7, 19, 29, 0.92)";
+    context.strokeStyle = "rgba(255, 199, 92, 0.72)";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.roundRect(labelX, labelY, labelWidth, labelHeight, 12);
+    context.fill();
+    context.stroke();
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillStyle = "#ffcf73";
+    context.fillText(label, labelX + labelWidth / 2, labelY + labelHeight / 2);
+    context.restore();
+  });
+
+  context.restore();
+}
+
+function drawTacticalTargetMarker(context, x, y, kind, type, pools) {
+  const airDefenseTypes = new Set(
+    uniqueTypes(
+      pools.antiAirArtillery,
+      pools.shortRangeSam,
+      pools.mediumRangeSam,
+      pools.pointDefense
+    )
+  );
+  const artilleryTypes = new Set(uniqueTypes(pools.artillery));
+
+  context.save();
+  context.translate(x, y);
+  context.lineWidth = 3;
+  context.strokeStyle = "#ffffff";
+
+  if (kind === "building") {
+    context.fillStyle = "#f2a640";
+    context.fillRect(-8, -8, 16, 16);
+    context.strokeRect(-8, -8, 16, 16);
+  } else if (airDefenseTypes.has(type)) {
+    context.fillStyle = "#ef6262";
+    context.beginPath();
+    context.moveTo(0, -11);
+    context.lineTo(10, 9);
+    context.lineTo(-10, 9);
+    context.closePath();
+    context.fill();
+    context.stroke();
+  } else if (artilleryTypes.has(type)) {
+    context.fillStyle = "#ffcf73";
+    context.rotate(Math.PI / 4);
+    context.fillRect(-8, -8, 16, 16);
+    context.strokeRect(-8, -8, 16, 16);
+  } else {
+    context.fillStyle = "#ef6262";
+    context.beginPath();
+    context.arc(0, 0, 8, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+  }
+
+  context.restore();
+}
+
+function drawTacticalTargetInset(context, mapImage, map, objectiveLocation, targets, frame) {
+  if (
+    !objectiveLocation ||
+    !Number.isFinite(Number(objectiveLocation.pixelX)) ||
+    !Number.isFinite(Number(objectiveLocation.pixelY)) ||
+    !Number.isFinite(Number(objectiveLocation.gameWorldX)) ||
+    !Number.isFinite(Number(objectiveLocation.gameWorldZ))
+  ) {
+    return;
+  }
+
+  const metersPerPixel = estimateMetersPerPixel(map);
+  if (!Number.isFinite(metersPerPixel) || metersPerPixel <= 0) {
+    return;
+  }
+
+  const viewRadiusMeters = 1500;
+  const sourceRadiusPixels = viewRadiusMeters / metersPerPixel;
+  const sourceSize = sourceRadiusPixels * 2;
+  const sourceX = clampNumber(
+    Number(objectiveLocation.pixelX) - sourceRadiusPixels,
+    0,
+    Number(map.pixelSize.width) - sourceSize,
+    0
+  );
+  const sourceY = clampNumber(
+    Number(objectiveLocation.pixelY) - sourceRadiusPixels,
+    0,
+    Number(map.pixelSize.height) - sourceSize,
+    0
+  );
+  const panelWidth = 880;
+  const panelHeight = 990;
+  const panelX = frame.x + frame.width - panelWidth - 42;
+  const panelY = frame.y + 42;
+  const insetPadding = 28;
+  const insetHeaderHeight = 92;
+  const insetSize = panelWidth - insetPadding * 2;
+  const insetX = panelX + insetPadding;
+  const insetY = panelY + insetHeaderHeight;
+  const objectiveX = Number(objectiveLocation.gameWorldX);
+  const objectiveZ = Number(objectiveLocation.gameWorldZ);
+  const pools = currentGroundForcePools();
+  const visibleTargets = targets.filter((target) => {
+    const position = target.globalPosition || {};
+    const dx = Number(position.x) - objectiveX;
+    const dz = Number(position.z) - objectiveZ;
+    return (
+      target.faction === els.enemyFaction.value &&
+      Number.isFinite(dx) &&
+      Number.isFinite(dz) &&
+      Math.sqrt(dx * dx + dz * dz) <= viewRadiusMeters
+    );
+  });
+
+  context.save();
+  context.shadowColor = "rgba(0, 0, 0, 0.72)";
+  context.shadowBlur = 28;
+  context.shadowOffsetY = 12;
+  context.fillStyle = "rgba(6, 17, 24, 0.96)";
+  context.beginPath();
+  context.roundRect(panelX, panelY, panelWidth, panelHeight, 24);
+  context.fill();
+  context.restore();
+
+  context.save();
+  context.strokeStyle = "rgba(102, 208, 203, 0.75)";
+  context.lineWidth = 4;
+  context.beginPath();
+  context.roundRect(panelX, panelY, panelWidth, panelHeight, 24);
+  context.stroke();
+
+  context.fillStyle = "#66d0cb";
+  context.font = "800 28px Segoe UI";
+  context.fillText("TACTICAL TARGET AREA", panelX + insetPadding, panelY + 38);
+  context.fillStyle = "#c8d6df";
+  context.font = "600 20px Segoe UI";
+  context.fillText(
+    `${objectiveLocation.name} · 3 KM WIDE · ${visibleTargets.length} KNOWN ENEMY OBJECTS`,
+    panelX + insetPadding,
+    panelY + 70
+  );
+
+  context.save();
+  context.beginPath();
+  context.rect(insetX, insetY, insetSize, insetSize);
+  context.clip();
+  context.drawImage(
+    mapImage,
+    sourceX,
+    sourceY,
+    sourceSize,
+    sourceSize,
+    insetX,
+    insetY,
+    insetSize,
+    insetSize
+  );
+  context.fillStyle = "rgba(2, 11, 17, 0.12)";
+  context.fillRect(insetX, insetY, insetSize, insetSize);
+
+  const objectiveMarkerX =
+    insetX + ((Number(objectiveLocation.pixelX) - sourceX) / sourceSize) * insetSize;
+  const objectiveMarkerY =
+    insetY + ((Number(objectiveLocation.pixelY) - sourceY) / sourceSize) * insetSize;
+  [500, 1000].forEach((radiusMeters) => {
+    const radiusPixels = (radiusMeters / (viewRadiusMeters * 2)) * insetSize;
+    context.save();
+    context.setLineDash([10, 10]);
+    context.strokeStyle = "rgba(102, 208, 203, 0.58)";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(objectiveMarkerX, objectiveMarkerY, radiusPixels, 0, Math.PI * 2);
+    context.stroke();
+    context.setLineDash([]);
+    context.font = "700 15px Segoe UI";
+    context.textAlign = "center";
+    context.textBaseline = "bottom";
+    context.lineWidth = 5;
+    context.strokeStyle = "rgba(0, 0, 0, 0.72)";
+    context.strokeText(`${radiusMeters / 1000} KM`, objectiveMarkerX, objectiveMarkerY - radiusPixels - 5);
+    context.fillStyle = "#b9eeee";
+    context.fillText(`${radiusMeters / 1000} KM`, objectiveMarkerX, objectiveMarkerY - radiusPixels - 5);
+    context.restore();
+  });
+
+  visibleTargets.forEach((target) => {
+    const position = target.globalPosition || {};
+    const targetPixelX =
+      Number(objectiveLocation.pixelX) + (Number(position.x) - objectiveX) / metersPerPixel;
+    const targetPixelY =
+      Number(objectiveLocation.pixelY) - (Number(position.z) - objectiveZ) / metersPerPixel;
+    const markerX = insetX + ((targetPixelX - sourceX) / sourceSize) * insetSize;
+    const markerY = insetY + ((targetPixelY - sourceY) / sourceSize) * insetSize;
+    drawTacticalTargetMarker(
+      context,
+      markerX,
+      markerY,
+      target.kind || "vehicle",
+      target.type,
+      pools
+    );
+  });
+
+  context.strokeStyle = "#66d0cb";
+  context.lineWidth = 4;
+  context.beginPath();
+  context.arc(objectiveMarkerX, objectiveMarkerY, 22, 0, Math.PI * 2);
+  context.stroke();
+  context.beginPath();
+  context.moveTo(objectiveMarkerX - 34, objectiveMarkerY);
+  context.lineTo(objectiveMarkerX + 34, objectiveMarkerY);
+  context.moveTo(objectiveMarkerX, objectiveMarkerY - 34);
+  context.lineTo(objectiveMarkerX, objectiveMarkerY + 34);
+  context.stroke();
+  context.restore();
+
+  context.strokeStyle = "rgba(255, 255, 255, 0.75)";
+  context.lineWidth = 3;
+  context.strokeRect(insetX, insetY, insetSize, insetSize);
+
+  const legendY = insetY + insetSize + 28;
+  context.font = "700 19px Segoe UI";
+  context.textBaseline = "middle";
+  drawTacticalTargetMarker(context, panelX + 44, legendY, "vehicle", "MBT1", pools);
+  context.fillStyle = "#d7e4ec";
+  context.fillText("GROUND", panelX + 62, legendY);
+  drawTacticalTargetMarker(
+    context,
+    panelX + 190,
+    legendY,
+    "vehicle",
+    pools.mediumRangeSam?.[0],
+    pools
+  );
+  context.fillText("AIR DEFENCE", panelX + 210, legendY);
+  drawTacticalTargetMarker(
+    context,
+    panelX + 390,
+    legendY,
+    "vehicle",
+    pools.artillery?.[0],
+    pools
+  );
+  context.fillText("ARTILLERY", panelX + 410, legendY);
+  drawTacticalTargetMarker(context, panelX + 570, legendY, "building", "", pools);
+  context.fillText("STRUCTURE", panelX + 590, legendY);
+
+  const scaleBarMeters = 500;
+  const scaleBarWidth = (scaleBarMeters / (viewRadiusMeters * 2)) * insetSize;
+  const scaleBarX = insetX + 22;
+  const scaleBarY = insetY + insetSize - 28;
+  context.strokeStyle = "#ffffff";
+  context.lineWidth = 5;
+  context.beginPath();
+  context.moveTo(scaleBarX, scaleBarY);
+  context.lineTo(scaleBarX + scaleBarWidth, scaleBarY);
+  context.moveTo(scaleBarX, scaleBarY - 8);
+  context.lineTo(scaleBarX, scaleBarY + 8);
+  context.moveTo(scaleBarX + scaleBarWidth, scaleBarY - 8);
+  context.lineTo(scaleBarX + scaleBarWidth, scaleBarY + 8);
+  context.stroke();
+  context.font = "800 18px Segoe UI";
+  context.fillStyle = "#ffffff";
+  context.textAlign = "center";
+  context.fillText("500 M", scaleBarX + scaleBarWidth / 2, scaleBarY - 18);
+
+  context.textAlign = "center";
+  context.font = "900 24px Segoe UI";
+  context.fillStyle = "#ffffff";
+  context.fillText("N", insetX + insetSize - 30, insetY + 32);
+  context.beginPath();
+  context.moveTo(insetX + insetSize - 30, insetY + 44);
+  context.lineTo(insetX + insetSize - 30, insetY + 76);
+  context.stroke();
+  context.restore();
 }
 
 async function buildBriefingGraphic() {
@@ -1494,6 +1903,16 @@ async function buildBriefingGraphic() {
     context.stroke();
   }
 
+  const mapFrame = {
+    x: mapX,
+    y: mapY,
+    width: drawWidth,
+    height: drawHeight,
+    scale
+  };
+  drawCanvasFrontlineOverlays(context, locations, advancedThreats, mapFrame);
+  drawCanvasRadiusOverlays(context, map, objectiveLocation, advancedThreats, mapFrame);
+
   locations.forEach((location) => {
     drawCanvasMarker(
       context,
@@ -1544,6 +1963,50 @@ async function buildBriefingGraphic() {
 
   return {
     fileName: `${els.campaignName.value.trim() || "campaign"}_briefing.png`,
+    dataUrl: canvas.toDataURL("image/png")
+  };
+}
+
+async function buildTacticalBriefingGraphic(options = {}) {
+  const map = mapByKey(state.selectedMapKey);
+  const objectiveLocation = getObjectiveSelection(map);
+  if (!map || !objectiveLocation) {
+    return null;
+  }
+
+  const mapImage = await loadImageAsset(resolveRendererAsset(map.imagePath));
+  const canvas = document.createElement("canvas");
+  const pixelScale = 2;
+  const logicalWidth = 964;
+  const logicalHeight = 1074;
+  canvas.width = logicalWidth * pixelScale;
+  canvas.height = logicalHeight * pixelScale;
+  const context = canvas.getContext("2d");
+  context.scale(pixelScale, pixelScale);
+  context.fillStyle = "#071119";
+  context.fillRect(0, 0, logicalWidth, logicalHeight);
+
+  const tacticalTargets = [
+    ...(options.ownershipVehicles || []).map((target) => ({ ...target, kind: "vehicle" })),
+    ...(options.targetBuildings || []).map((target) => ({ ...target, kind: "building" }))
+  ];
+  drawTacticalTargetInset(
+    context,
+    mapImage,
+    map,
+    objectiveLocation,
+    tacticalTargets,
+    {
+      x: 0,
+      y: 0,
+      width: logicalWidth,
+      height: logicalHeight,
+      scale: 1
+    }
+  );
+
+  return {
+    fileName: `${els.campaignName.value.trim() || "campaign"}_tactical.png`,
     dataUrl: canvas.toDataURL("image/png")
   };
 }
@@ -3496,10 +3959,21 @@ function buildObjectiveTemplateElements(objectiveLocation) {
 function buildCampaignVehicles(locations, objectiveLocation, settings, objectiveTemplateVehicles = []) {
   const persistedVehicles = buildVehiclesFromPersistentUnits();
   if (persistedVehicles.length > 0) {
-    return Number(state.campaignState?.groundForceCompositionVersion || 0) >=
-      GROUND_FORCE_COMPOSITION_VERSION
+    const currentVehicles =
+      Number(state.campaignState?.groundForceCompositionVersion || 0) >=
+        GROUND_FORCE_COMPOSITION_VERSION
       ? persistedVehicles
       : diversifyPersistentVehicleTypes(persistedVehicles);
+    const persistentOperationalVehicles = currentVehicles.filter((vehicle) => {
+      return !vehicle.UniqueName?.startsWith("objective_");
+    });
+
+    return [
+      ...persistentOperationalVehicles,
+      ...objectiveTemplateVehicles,
+      ...buildObjectiveDefenseVehicles(objectiveLocation, settings),
+      ...buildObjectivePatrolVehicles(objectiveLocation, settings)
+    ];
   }
 
   return [
@@ -3644,7 +4118,13 @@ async function getCampaignPayload() {
   return {
     paths: state.catalog.paths,
     campaignName: els.campaignName.value,
-    briefingGraphic: await buildBriefingGraphic(),
+    briefingGraphics: await Promise.all([
+      buildBriefingGraphic(),
+      buildTacticalBriefingGraphic({
+        ownershipVehicles,
+        targetBuildings
+      })
+    ]),
     parameters: {
       description: els.description.value,
       mapKey: map.key,
@@ -3729,7 +4209,7 @@ async function exportCampaign() {
       <div>Campaign exported.</div>
       <div>${result.campaignPath}</div>
       <div>${result.missionFolder}</div>
-      <div>Briefing image: ${result.briefingGraphicPath || "not generated"}</div>
+      <div>Briefing images: ${(result.briefingGraphicPaths || []).join(" | ") || "not generated"}</div>
       <div>Campaign state: ${result.campaignStatePath || "not saved"}</div>
       ${installLine}
     `;

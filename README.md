@@ -31,7 +31,9 @@ The app is organized around three main workspaces:
 - Supports manual ownership assignment per named location.
 - Exports a fresh mission start-state instead of seeding from an existing scenario.
 - Installs exported missions into the live `Nuclear Option` missions folder.
-- Exports a mission briefing PNG alongside each generated mission package.
+- Exports two planning PNGs alongside each generated mission package: a full-map
+  approach briefing with front/contact axes and air-patrol radii, plus a
+  tactical target-area sheet showing the actual exported enemy defenses.
 - Persists faction logistics, ownership, objective metadata, and generated order-of-battle records.
 - Displays configured locations as ownership nodes on the UI map.
 - Highlights the selected starting airfield and objective on the campaign map.

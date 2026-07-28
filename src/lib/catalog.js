@@ -1069,15 +1069,20 @@ function exportCampaign(payload) {
     JSON.stringify({ FileName: campaignName }, null, 2)
   );
 
-  let briefingGraphicPath = null;
-  if (payload?.briefingGraphic?.dataUrl) {
+  const briefingGraphics = Array.isArray(payload?.briefingGraphics)
+    ? payload.briefingGraphics.filter((graphic) => graphic?.dataUrl)
+    : payload?.briefingGraphic?.dataUrl
+      ? [payload.briefingGraphic]
+      : [];
+  const briefingGraphicPaths = briefingGraphics.map((briefingGraphic, index) => {
     const briefingFileName = sanitizeName(
-      path.basename(payload.briefingGraphic.fileName || `${campaignName}_briefing`)
+      path.basename(briefingGraphic.fileName || `${campaignName}_briefing_${index + 1}`)
         .replace(/\.[^/.]+$/, "")
     );
-    briefingGraphicPath = path.join(missionFolder, `${briefingFileName}.png`);
-    writeDataUrlFile(briefingGraphicPath, payload.briefingGraphic.dataUrl);
-  }
+    const briefingGraphicPath = path.join(missionFolder, `${briefingFileName}.png`);
+    writeDataUrlFile(briefingGraphicPath, briefingGraphic.dataUrl);
+    return briefingGraphicPath;
+  });
 
   let installedMissionFolder = null;
   let installed = false;
@@ -1158,7 +1163,8 @@ function exportCampaign(payload) {
     exportRoot,
     campaignPath,
     missionFolder,
-    briefingGraphicPath,
+    briefingGraphicPath: briefingGraphicPaths[0] || null,
+    briefingGraphicPaths,
     installed,
     installedMissionFolder,
     installError,
