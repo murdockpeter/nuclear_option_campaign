@@ -180,6 +180,14 @@ Exports currently write:
 - `exports/<Campaign Name>/<Campaign Name>/meta.json`
 - `exports/<Campaign Name>/<Campaign Name>/<Campaign Name>.json`
 - `exports/<Campaign Name>/<Campaign Name>/<Campaign Name>_briefing.png`
+- `exports/<Campaign Name>/<Campaign Name>/<Campaign Name>_tactical.png`
+- `exports/<Campaign Name>/<Campaign Name>/<Campaign Name>_full_briefing.md`
+
+The Markdown briefing is regenerated from the exported scenario data on every
+build. It includes the route geometry, weather, objective completion threshold,
+actual target counts, patrol pressure, target priorities, package guidance, and
+a short read-aloud brief. It is copied into the live mission folder with the
+mission and both planning images.
 
 The exporter also attempts to install the generated mission into:
 

@@ -794,6 +794,337 @@ function buildGeneratedBriefing(payload) {
   return [customDescription, briefingLines.join("\n")].filter(Boolean).join("\n\n");
 }
 
+function getWorldPosition(item) {
+  const position = item?.position || item?.globalPosition || item?.Center || item || {};
+  const x = Number(position.x ?? position.gameWorldX);
+  const y = Number(position.y ?? position.gameWorldY ?? 0);
+  const z = Number(position.z ?? position.gameWorldZ);
+  return Number.isFinite(x) && Number.isFinite(z) ? { x, y, z } : null;
+}
+
+function distanceBetween(first, second) {
+  if (!first || !second) {
+    return null;
+  }
+  return Math.hypot(second.x - first.x, second.z - first.z);
+}
+
+function bearingBetween(first, second) {
+  if (!first || !second) {
+    return null;
+  }
+  return (Math.atan2(second.x - first.x, second.z - first.z) * 180 / Math.PI + 360) % 360;
+}
+
+function compassDirection(bearing) {
+  if (!Number.isFinite(bearing)) {
+    return "unknown";
+  }
+  const directions = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"];
+  return directions[Math.round(bearing / 45) % directions.length];
+}
+
+function markdownValue(value, fallback = "Unspecified") {
+  const normalized = String(value ?? "").replace(/[\r\n|]+/g, " ").trim();
+  return normalized || fallback;
+}
+
+function formatCoordinate(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.round(number).toLocaleString("en-US") : "unknown";
+}
+
+function countLabel(value, singular, plural = `${singular}s`) {
+  const count = Number(value || 0);
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function formatTimeOfDay(hourValue) {
+  const hour = Number(hourValue);
+  if (!Number.isFinite(hour)) {
+    return "Unspecified";
+  }
+  const normalizedHour = ((hour % 24) + 24) % 24;
+  const label = normalizedHour < 5
+    ? "Night"
+    : normalizedHour < 8
+      ? "Dawn"
+      : normalizedHour < 12
+        ? "Morning"
+        : normalizedHour < 15
+          ? "Midday"
+          : normalizedHour < 19
+            ? "Afternoon"
+            : normalizedHour < 22
+              ? "Dusk"
+              : "Night";
+  return `${String(Math.round(normalizedHour)).padStart(2, "0")}00 local (${label})`;
+}
+
+function getObjectiveVehicles(payload) {
+  const initialState = payload.initialState || {};
+  const objectiveName = initialState.objectiveLocation?.name || "";
+  const objectiveSlug = sanitizeName(objectiveName).replace(/\s+/g, "_").toLowerCase();
+  return (initialState.ownershipVehicles || []).filter((vehicle) => {
+    const uniqueName = String(vehicle?.UniqueName || "").toLowerCase();
+    return uniqueName.startsWith("objective_") && (!objectiveSlug || uniqueName.includes(objectiveSlug));
+  });
+}
+
+function classifyObjectiveVehicles(vehicles) {
+  const counts = {
+    airDefense: 0,
+    artillery: 0,
+    tanks: 0,
+    otherGround: 0
+  };
+
+  vehicles.forEach((vehicle) => {
+    const type = String(vehicle?.type || "").toLowerCase();
+    if (/sam|spaag|aaa|air.?defen|radar/.test(type)) {
+      counts.airDefense += 1;
+    } else if (/art|mlrs/.test(type)) {
+      counts.artillery += 1;
+    } else if (/mbt|tank/.test(type)) {
+      counts.tanks += 1;
+    } else {
+      counts.otherGround += 1;
+    }
+  });
+
+  return counts;
+}
+
+function buildFullBriefingDocument(payload, campaignName) {
+  const parameters = payload.parameters || {};
+  const initialState = payload.initialState || {};
+  const objective = initialState.objectiveLocation || {};
+  const start = initialState.startingAirbase || {};
+  const advancedThreats = parameters.advancedThreats || {};
+  const resistance = advancedThreats.operationalResistance || {};
+  const patrolPlan = advancedThreats.patrolPlan || {};
+  const objectiveVehicles = getObjectiveVehicles(payload);
+  const targetBuildings = (initialState.targetBuildings || []).filter((building) =>
+    String(building?.UniqueName || "").startsWith("objective_")
+  );
+  const vehicleCounts = classifyObjectiveVehicles(objectiveVehicles);
+  const knownTargetCount = objectiveVehicles.length + targetBuildings.length;
+  const requiredTargetCount = getRequiredObjectiveTargets(payload).length;
+  const completionPercent = Math.max(1, Math.min(100, Number(
+    objective.completionPercent ?? parameters.objectiveCompletionPercent ?? 50
+  )));
+  const friendlyFaction = start.owner || initialState.factions?.[0]?.factionName || "Friendly";
+  const enemyFaction = objective.owner || initialState.factions?.[1]?.factionName || "Enemy";
+  const startPosition = getWorldPosition(start);
+  const objectivePosition = getWorldPosition(objective);
+  const directDistance = distanceBetween(startPosition, objectivePosition);
+  const directBearing = bearingBetween(startPosition, objectivePosition);
+  const approachSector = Number.isFinite(directBearing)
+    ? compassDirection((directBearing + 180) % 360)
+    : "the departure side";
+  const weatherPercent = Math.max(0, Math.min(100, Math.round(Number(parameters.weatherIntensity || 0) * 100)));
+  const airDefensePositions = objectiveVehicles
+    .filter((vehicle) => /sam|spaag|aaa|air.?defen|radar/i.test(String(vehicle?.type || "")))
+    .map(getWorldPosition)
+    .filter(Boolean);
+  let airDefenseSector = null;
+  let preferredIngressSector = null;
+
+  if (objectivePosition && airDefensePositions.length > 0) {
+    const averagePosition = airDefensePositions.reduce((sum, position) => ({
+      x: sum.x + position.x,
+      y: sum.y + position.y,
+      z: sum.z + position.z
+    }), { x: 0, y: 0, z: 0 });
+    averagePosition.x /= airDefensePositions.length;
+    averagePosition.y /= airDefensePositions.length;
+    averagePosition.z /= airDefensePositions.length;
+    const averageDistance = distanceBetween(objectivePosition, averagePosition);
+    const averageBearing = bearingBetween(objectivePosition, averagePosition);
+    if (averageDistance >= 75 && Number.isFinite(averageBearing)) {
+      airDefenseSector = compassDirection(averageBearing);
+      preferredIngressSector = compassDirection((averageBearing + 180) % 360);
+    }
+  }
+
+  const hostileLocations = (initialState.locations || [])
+    .filter((location) => {
+      const owner = location.initialOwner || location.owner;
+      return owner === enemyFaction && location.name !== objective.name;
+    })
+    .map((location) => ({
+      name: markdownValue(location.name),
+      distance: distanceBetween(objectivePosition, getWorldPosition(location))
+    }))
+    .filter((location) => Number.isFinite(location.distance))
+    .sort((first, second) => first.distance - second.distance)
+    .slice(0, 3);
+
+  const productionTypes = [...new Set(targetBuildings
+    .map((building) => building?.factoryOptions?.productionType)
+    .filter(Boolean))];
+  const helicopterPatrols = Number(patrolPlan.helicopterPatrols || 0);
+  const fixedWingPatrols = Number(patrolPlan.fixedWingPatrols || 0);
+  const enemyAirSummary = helicopterPatrols === 0 && fixedWingPatrols === 0
+    ? "No preplanned enemy helicopter or fixed-wing patrols. Maintain normal radar and visual lookout."
+    : `${countLabel(helicopterPatrols, "helicopter patrol")} inside approximately ${Number(patrolPlan.helicopterPatrolRadius || 0).toLocaleString("en-US")} m and ${countLabel(fixedWingPatrols, "fixed-wing patrol")} inside approximately ${Number(patrolPlan.fixedWingPatrolRadius || 0).toLocaleString("en-US")} m.`;
+  const airDefenseSummary = vehicleCounts.airDefense > 0
+    ? `${countLabel(vehicleCounts.airDefense, "known local air-defense vehicle")}${airDefenseSector ? `, weighted toward the ${airDefenseSector} side of the aimpoint` : ""}.`
+    : "No local air-defense vehicles appear on the tactical export; remain alert for theater threats.";
+  const mediumRangeSamSummary = resistance.mediumRangeSam
+    ? "Medium-range SAM resistance is enabled."
+    : "No medium-range SAM resistance is planned.";
+  const ingressAdvice = preferredIngressSector
+    ? `Where terrain and package geometry permit, favor an offset toward the **${preferredIngressSector}** before the final run-in; the known local air defenses are weighted toward the ${airDefenseSector}.`
+    : "Use an offset ingress and keep the main strike element outside the local threat ring until air defenses are located or ruled out.";
+  const nearbyThreatText = hostileLocations.length > 0
+    ? hostileLocations.map((location) => `${location.name} (${(location.distance / 1000).toFixed(1)} km)`).join(", ")
+    : "No additional hostile operating locations are plotted near the objective.";
+  const directRouteText = Number.isFinite(directDistance) && Number.isFinite(directBearing)
+    ? `${(directDistance / 1000).toFixed(1)} km on bearing ${String(Math.round(directBearing)).padStart(3, "0")} degrees, approaching the objective from the ${approachSector}`
+    : "not available from the exported coordinates";
+  const knownObjectsText = knownTargetCount > 0 ? String(knownTargetCount) : "an unconfirmed number of";
+  const designatedText = requiredTargetCount > 0
+    ? `${countLabel(requiredTargetCount, "target element")} ${requiredTargetCount === 1 ? "is" : "are"} assigned to the generated completion objective`
+    : "the in-game objective system will identify the required target elements";
+
+  return `# ${markdownValue(campaignName).toUpperCase()}
+
+## Mission Briefing
+
+**Theater:** ${markdownValue(parameters.mapLabel || parameters.mapKey)}<br>
+**Friendly force:** ${markdownValue(friendlyFaction)}<br>
+**Enemy force:** ${markdownValue(enemyFaction)}<br>
+**Departure / recovery:** ${markdownValue(start.name || parameters.startingAirbase)}<br>
+**Primary objective:** ${markdownValue(objective.name)}<br>
+**Threat posture:** ${markdownValue(objective.profile || parameters.objectiveUnitProfile, "Mixed")} / ${markdownValue(objective.intensity || parameters.objectiveIntensity, "Medium")}<br>
+**Objective center:** X ${formatCoordinate(objective.gameWorldX ?? objective.x)} / Z ${formatCoordinate(objective.gameWorldZ ?? objective.z)}<br>
+**Time:** ${formatTimeOfDay(parameters.timeOfDay)}<br>
+**Weather:** ${weatherPercent}% cloud / weather intensity, cloud base approximately 1,800 m, calm winds<br>
+**Respawn:** ${parameters.allowRespawn ? "Authorized" : "Not authorized"}
+
+---
+
+## 1. Situation
+
+${enemyFaction} forces occupy ${markdownValue(objective.name)} with a ${markdownValue(objective.intensity || parameters.objectiveIntensity, "medium").toLowerCase()}-intensity mixed defensive package. The direct route from ${markdownValue(start.name || parameters.startingAirbase)} is **${directRouteText}**. The short route should not be mistaken for a permissive one: front-line axes, patrols, convoys, and defended operating locations may place mobile threats between departure and the objective.
+
+The theater plan contains ${countLabel(patrolPlan.frontlinePairs, "front-line axis", "front-line axes")}, ${countLabel(patrolPlan.frontlinePatrolGroups, "front-line patrol group")}, ${countLabel(patrolPlan.convoyGroups, "convoy group")}, and ${countLabel(patrolPlan.localePatrolGroups, "locale patrol group")}. Placement randomness is ${Number(patrolPlan.randomnessPercent || 0)}%, so the briefing graphics are planning snapshots rather than guarantees of exact mobile-unit position.
+
+Closest plotted enemy operating locations: ${nearbyThreatText}.
+
+Enemy air activity: ${enemyAirSummary}
+
+## 2. Enemy Forces at the Objective
+
+The tactical export shows **${knownObjectsText} known enemy ${knownTargetCount === 1 ? "object" : "objects"}** in the objective area.
+
+| Category | Known exported count |
+|---|---:|
+| Local air defense | ${vehicleCounts.airDefense} |
+| Artillery / MLRS | ${vehicleCounts.artillery} |
+| Main battle tanks | ${vehicleCounts.tanks} |
+| Other ground and patrol vehicles | ${vehicleCounts.otherGround} |
+| Production / target structures | ${targetBuildings.length} |
+
+${airDefenseSummary} ${mediumRangeSamSummary} ${vehicleCounts.artillery > 0 ? `${countLabel(vehicleCounts.artillery, "artillery or rocket system")} can influence the surrounding corridor.` : "No artillery systems are plotted inside the objective package."}${productionTypes.length > 0 ? ` Production facilities are associated with ${productionTypes.map(markdownValue).join(", ")}.` : ""}
+
+Mobile targets may leave their plotted marks after mission start. Treat the tactical sheet as the best available preflight picture and live sensors as authoritative.
+
+## 3. Mission
+
+${friendlyFaction} aircrews will launch from ${markdownValue(start.name || parameters.startingAirbase)}, penetrate the objective corridor, and **neutralize ${markdownValue(objective.name)} by destroying ${completionPercent}% of the designated target elements**.
+
+The tactical sheet depicts all known objects for planning. ${designatedText}; HUD designations and the live objective status are authoritative. Destroying an un-designated object may be tactically useful without advancing the formal completion condition.
+
+## 4. Commander's Intent
+
+Break the objective's defensive system without trading aircraft against intact air defenses. Locate and suppress local SAM or AAA threats first, destroy HUD-designated targets in a deliberate sequence, and withdraw as soon as the objective confirms completion. Aircraft preservation takes priority over clearing every symbol from the tactical sheet.
+
+## 5. Execution
+
+### Phase I — Launch and marshal
+
+Build the package before committing to the objective corridor. Confirm sensors, weapons, fuel, and element assignments while clear of the target. The flight lead should assign SEAD, strike, and cleanup responsibilities before the final run-in.
+
+### Phase II — Ingress
+
+The direct route is ${directRouteText}. It offers the fastest time to target but may cross active patrol or convoy corridors. ${ingressAdvice}
+
+Do not use a hostile airfield or highway strip as a low-altitude turn point. Keep sufficient lateral spacing to prevent one threat system from engaging the entire package.
+
+### Phase III — Air-defense suppression
+
+${vehicleCounts.airDefense > 0 ? `The ${countLabel(vehicleCounts.airDefense, "plotted local air-defense vehicle")} ${vehicleCounts.airDefense === 1 ? "is" : "are"} first priority.` : "Search for unplotted or mobile air-defense threats before committing to close-range attacks."} Use anti-radiation, standoff, or precision weapons where available. A radar shutdown is not confirmation of destruction; verify the threat is suppressed before sending the main strike element inside the local defensive ring.
+
+### Phase IV — Main attack
+
+Attack in the following order:
+
+1. HUD-designated targets required for mission completion.
+2. Air-defense systems that still threaten the package.
+3. Artillery and rocket systems.
+4. Tanks, mechanized vehicles, and other mobile threats.
+5. Production structures and remaining targets of opportunity when designated or when fuel and weapons permit.
+
+Assign targets by sector, type, or HUD mark to prevent duplicate attacks. Use separated attack headings and altitude blocks. After each pass, extend clear of the target, assess objective status, and re-attack only with a confirmed target and exit path.
+
+### Phase V — Egress and recovery
+
+On objective completion, egress toward friendly territory and recover at ${markdownValue(start.name || parameters.startingAirbase)}. Avoid wide turns toward the nearby hostile locations listed above. If the objective does not complete after the expected number of kills, check for surviving HUD-designated elements before spending weapons on prominent but un-designated objects.
+
+## 6. Recommended Package
+
+- **SEAD / escort element:** sensors and anti-radiation or standoff weapons, plus self-defense air-to-air missiles.
+- **Strike element:** precision weapons suitable for the exported mix of armor, artillery, and structures.
+- **Optional cleanup element:** guided rockets, light precision weapons, or cannon for mobile survivors after air defenses are confirmed down.
+
+Carry a self-defense air-to-air option even when no enemy air patrol is scheduled. Match package size to the known object count and the ${completionPercent}% completion requirement.
+
+## 7. Coordinating Instructions
+
+- Positive identification is required before weapons release.
+- Call weapons away, direction of attack, and egress direction for every pass.
+- Abort a run if the target is lost, friendlies enter the weapon footprint, or the exit path crosses an active threat indication.
+- The overcast layer may compress vertical separation; make explicit deconfliction calls near cloud base.
+- Do not continue attacking solely to clear the tactical sheet after the objective completes unless directed by flight lead.
+
+## 8. Abort and Contingency Criteria
+
+Reset outside the threat area if local air defenses remain active and cannot be engaged, weather prevents positive identification, the package becomes separated, fuel no longer supports an attack and safe recovery, or aircraft cannot deconflict over the compact objective area. A damaged aircraft should announce its condition, separate along the safest friendly axis, and recover without drawing the rest of the package through an active threat sector.
+
+## 9. Mission Data Card
+
+| Item | Data |
+|---|---|
+| Departure / recovery | ${markdownValue(start.name || parameters.startingAirbase)} |
+| Objective | ${markdownValue(objective.name)} |
+| Objective coordinates | X ${formatCoordinate(objective.gameWorldX ?? objective.x)} / Z ${formatCoordinate(objective.gameWorldZ ?? objective.z)} |
+| Direct route | ${directRouteText} |
+| Completion requirement | Destroy ${completionPercent}% of HUD-designated target elements |
+| Known tactical objects | ${knownTargetCount} |
+| Local air defense | ${vehicleCounts.airDefense} |
+| Artillery / MLRS | ${vehicleCounts.artillery} |
+| Tanks | ${vehicleCounts.tanks} |
+| Other ground / patrol vehicles | ${vehicleCounts.otherGround} |
+| Production / target structures | ${targetBuildings.length} |
+| Enemy air patrols | ${helicopterPatrols} helicopter / ${fixedWingPatrols} fixed-wing |
+| Weather | ${weatherPercent}% intensity; 1,800 m cloud base; calm winds |
+| Friendly respawn | ${parameters.allowRespawn ? "Enabled" : "Disabled"} |
+
+## 10. Read-Aloud Brief
+
+> ${friendlyFaction} flight, this is ${markdownValue(campaignName)}. Launch from ${markdownValue(start.name || parameters.startingAirbase)} and neutralize ${markdownValue(objective.name)}. The direct route is ${directRouteText}. The tactical picture shows ${knownObjectsText} known enemy objects, including ${countLabel(vehicleCounts.airDefense, "local air-defense vehicle")}, ${countLabel(vehicleCounts.artillery, "artillery system")}, ${countLabel(vehicleCounts.tanks, "tank")}, ${countLabel(vehicleCounts.otherGround, "other ground vehicle")}, and ${countLabel(targetBuildings.length, "structure")}.
+>
+> Suppress air defenses before committing the main strike. Service HUD-designated targets first and destroy ${completionPercent}% of the designated elements. Confirm objective completion, then egress to friendly territory and recover at ${markdownValue(start.name || parameters.startingAirbase)}. Preserve aircraft and do not remain over the target after the mission is complete.
+
+---
+
+**Planning references:** \`${markdownValue(campaignName)}_briefing.png\` and \`${markdownValue(campaignName)}_tactical.png\`<br>
+**Controlling principle:** HUD designations and live threat indications supersede the static planning graphics.
+`;
+}
+
 function getObjectiveTargetNames(payload) {
   const initialState = payload.initialState || {};
   const objective = initialState.objectiveLocation || {};
@@ -1069,6 +1400,13 @@ function exportCampaign(payload) {
     JSON.stringify({ FileName: campaignName }, null, 2)
   );
 
+  const briefingDocumentPath = path.join(missionFolder, `${campaignName}_full_briefing.md`);
+  fs.writeFileSync(
+    briefingDocumentPath,
+    buildFullBriefingDocument(payload, campaignName),
+    "utf8"
+  );
+
   const briefingGraphics = Array.isArray(payload?.briefingGraphics)
     ? payload.briefingGraphics.filter((graphic) => graphic?.dataUrl)
     : payload?.briefingGraphic?.dataUrl
@@ -1163,6 +1501,7 @@ function exportCampaign(payload) {
     exportRoot,
     campaignPath,
     missionFolder,
+    briefingDocumentPath,
     briefingGraphicPath: briefingGraphicPaths[0] || null,
     briefingGraphicPaths,
     installed,
@@ -1391,6 +1730,7 @@ module.exports = {
   DEFAULT_PATHS,
   MAP_PRESETS,
   buildCatalog,
+  buildFullBriefingDocument,
   exportCampaign,
   getAppSettingsPath,
   getCampaignStatePath,

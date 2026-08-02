@@ -4209,6 +4209,7 @@ async function exportCampaign() {
       <div>Campaign exported.</div>
       <div>${result.campaignPath}</div>
       <div>${result.missionFolder}</div>
+      <div>Full briefing: ${result.briefingDocumentPath || "not generated"}</div>
       <div>Briefing images: ${(result.briefingGraphicPaths || []).join(" | ") || "not generated"}</div>
       <div>Campaign state: ${result.campaignStatePath || "not saved"}</div>
       ${installLine}
